@@ -1,78 +1,80 @@
-import { createClient } from "@/lib/supabase/server";
+"use client";
+
+import { useState } from "react";
 import { Button } from "@/components/ui/button";
-import { buttonVariants } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
-import { redirect } from "next/navigation";
+import {
+  Card,
+  CardContent,
+  CardHeader,
+  CardTitle,
+  CardDescription,
+} from "@/components/ui/card";
+import { Search, Loader2 } from "lucide-react";
 import { PDFButton } from "./PDFButton";
-import Link from "next/link";
-import { Search } from "lucide-react";
 
-export default async function PurchasingPage({
-  searchParams,
-}: {
-  searchParams: Promise<{ q?: string }>;
-}) {
-  const supabase = await createClient();
-  const { q } = await searchParams;
+interface Booking {
+  id: string;
+  qty: number;
+  total_amount: number;
+  booking_amount: number;
+  balance_amount: number;
+  created_at: string;
+  farmer: {
+    id: string;
+    name: string;
+    unique_id: string;
+    phone: string;
+    address: string;
+  };
+  item: {
+    id: string;
+    name: string;
+    rate_per_unit: number;
+  };
+}
 
-  // Security Check: Only Admin and Leader can view this page
-  const { data: { user } } = await supabase.auth.getUser();
-  if (!user) redirect("/login");
+export default function PurchasingPage() {
+  const [query, setQuery] = useState("");
+  const [searched, setSearched] = useState(false);
+  const [loading, setLoading] = useState(false);
+  const [bookings, setBookings] = useState<Booking[]>([]);
+  const [error, setError] = useState<string | null>(null);
 
-  const { data: profile } = await supabase
-    .from("profiles")
-    .select("role")
-    .eq("id", user.id)
-    .single();
+  const handleSearch = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!query.trim()) return;
 
-  if (profile?.role !== "Admin" && profile?.role !== "Leader") {
-    redirect("/");
-  }
+    setLoading(true);
+    setError(null);
+    setSearched(false);
+    setBookings([]);
 
-  // Fetch pending bookings based on last 3 digits of farmer unique_id
-  let bookings: any[] = [];
-  let fetchError: string | null = null;
-
-  if (q) {
     try {
-      // Step 1: Find farmers whose unique_id ends with the searched digits
-      const { data: matchedFarmers, error: farmerError } = await supabase
-        .from("farmers")
-        .select("id")
-        .ilike("unique_id", `%${q}`);
+      const res = await fetch(
+        `/api/purchasing/search?q=${encodeURIComponent(query.trim())}`
+      );
+      const json = await res.json();
 
-      if (farmerError) {
-        throw new Error(`Farmer lookup failed: ${farmerError.message}`);
-      }
-
-      if (matchedFarmers && matchedFarmers.length > 0) {
-        const farmerIds = matchedFarmers.map((f: any) => f.id);
-
-        // Step 2: Fetch pending bookings for those farmer IDs
-        const { data, error: bookingError } = await supabase
-          .from("bookings")
-          .select(`
-            *,
-            farmer:farmers(*),
-            item:items(*)
-          `)
-          .eq("status", "Pending")
-          .in("farmer_id", farmerIds);
-
-        if (bookingError) {
-          throw new Error(`Booking lookup failed: ${bookingError.message}`);
-        }
-
-        if (data) {
-          bookings = data;
-        }
+      if (!res.ok || json.error) {
+        setError(json.error ?? `Server returned ${res.status}`);
+      } else {
+        setBookings(json.bookings ?? []);
+        setSearched(true);
       }
     } catch (err: any) {
-      console.error("[PurchasingPage] Error:", err);
-      fetchError = err?.message ?? "An unknown error occurred.";
+      setError(err?.message ?? "Network error");
+    } finally {
+      setLoading(false);
     }
-  }
+  };
+
+  const handleClear = () => {
+    setQuery("");
+    setSearched(false);
+    setBookings([]);
+    setError(null);
+  };
 
   return (
     <div className="space-y-6 max-w-4xl mx-auto">
@@ -82,16 +84,17 @@ export default async function PurchasingPage({
         <CardHeader>
           <CardTitle>Search Farmer</CardTitle>
           <CardDescription>
-            Enter the last 3 digits of the Farmer&apos;s Token ID to locate their pending order.
+            Enter the last 3 digits of the Farmer&apos;s Token ID to locate their
+            pending order.
           </CardDescription>
         </CardHeader>
         <CardContent>
-          <form className="flex gap-4 items-center">
+          <form onSubmit={handleSearch} className="flex gap-4 items-center">
             <div className="relative flex-1 max-w-md">
               <Search className="absolute left-3 top-2.5 h-4 w-4 text-gray-500" />
               <Input
-                name="q"
-                defaultValue={q}
+                value={query}
+                onChange={(e) => setQuery(e.target.value)}
                 placeholder="e.g. 012"
                 className="pl-10 text-lg"
                 pattern="\d{1,4}"
@@ -99,26 +102,37 @@ export default async function PurchasingPage({
                 required
               />
             </div>
-            <Button type="submit" size="lg">Find Order</Button>
-            {q && (
-              <Link
-                href="/purchasing"
-                className={buttonVariants({ variant: "outline", size: "lg" })}
+            <Button type="submit" size="lg" disabled={loading}>
+              {loading ? (
+                <>
+                  <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                  Searching...
+                </>
+              ) : (
+                "Find Order"
+              )}
+            </Button>
+            {(searched || error) && (
+              <Button
+                type="button"
+                variant="outline"
+                size="lg"
+                onClick={handleClear}
               >
                 Clear
-              </Link>
+              </Button>
             )}
           </form>
         </CardContent>
       </Card>
 
-      {fetchError && (
+      {error && (
         <div className="p-4 bg-red-50 border border-red-200 rounded text-red-700 text-sm">
-          <strong>Error:</strong> {fetchError}
+          <strong>Error:</strong> {error}
         </div>
       )}
 
-      {q && !fetchError && (
+      {searched && (
         <div className="space-y-4">
           <h2 className="text-xl font-semibold">Search Results</h2>
           {bookings.length > 0 ? (
@@ -136,7 +150,9 @@ export default async function PurchasingPage({
                   <CardContent className="pt-4 space-y-4">
                     <div className="grid grid-cols-2 gap-y-2 text-sm">
                       <div className="text-gray-500">Item:</div>
-                      <div className="font-medium text-right">{b.item?.name}</div>
+                      <div className="font-medium text-right">
+                        {b.item?.name}
+                      </div>
 
                       <div className="text-gray-500">Rate:</div>
                       <div className="font-medium text-right text-gray-700 font-mono">
@@ -149,14 +165,18 @@ export default async function PurchasingPage({
 
                     <div className="border-t pt-3 grid grid-cols-2 gap-y-2 text-sm">
                       <div className="text-gray-500">Total Amount:</div>
-                      <div className="text-right font-mono">&#8377;{b.total_amount}</div>
+                      <div className="text-right font-mono">
+                        &#8377;{b.total_amount}
+                      </div>
 
                       <div className="text-gray-500">Advance (10%):</div>
                       <div className="text-right text-green-700 font-mono">
                         - &#8377;{b.booking_amount}
                       </div>
 
-                      <div className="text-gray-900 font-bold mt-2">Balance Due:</div>
+                      <div className="text-gray-900 font-bold mt-2">
+                        Balance Due:
+                      </div>
                       <div className="text-right text-lg font-bold text-red-600 font-mono mt-2">
                         &#8377;{b.balance_amount}
                       </div>
@@ -171,7 +191,7 @@ export default async function PurchasingPage({
             </div>
           ) : (
             <div className="p-8 text-center border rounded border-dashed text-gray-500">
-              No pending orders found for Farmer ID ending in &quot;{q}&quot;.
+              No pending orders found for Farmer ID ending in &quot;{query}&quot;.
             </div>
           )}
         </div>
