@@ -33,23 +33,30 @@ export default async function PurchasingPage({
   // Fetch pending bookings based on last 3 digits
   let bookings: any[] = [];
   if (q) {
-    // Note: To search based on the last 3 digits, we can use an ilike query in Supabase 
-    // since unique_id formatting is FRM-001. We can search %001
-    const { data } = await supabase
-      .from("bookings")
-      .select(`
-        *,
-        farmer:farmers(*),
-        item:items(*)
-      `)
-      .eq("status", "Pending")
-      .ilike("farmer.unique_id", `%${q}`)
-      .is("deleted_at", null);
-      
-    // Because Supabase handles joins awkwardly with ilike sometimes returning null farmers instead of omitting rows,
-    // we filter manually to ensure we only get bookings where farmer matched.
-    if (data) {
-      bookings = data.filter(b => b.farmer !== null);
+    // Step 1: Find farmers whose unique_id ends with the searched digits (e.g. "001" matches "FRM-001")
+    const { data: matchedFarmers } = await supabase
+      .from("farmers")
+      .select("id")
+      .ilike("unique_id", `%${q}`);
+
+    if (matchedFarmers && matchedFarmers.length > 0) {
+      const farmerIds = matchedFarmers.map((f) => f.id);
+
+      // Step 2: Fetch pending bookings for those farmer IDs with full join data
+      const { data } = await supabase
+        .from("bookings")
+        .select(`
+          *,
+          farmer:farmers(*),
+          item:items(*)
+        `)
+        .eq("status", "Pending")
+        .in("farmer_id", farmerIds)
+        .is("deleted_at", null);
+
+      if (data) {
+        bookings = data;
+      }
     }
   }
 
