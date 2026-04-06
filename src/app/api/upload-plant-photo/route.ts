@@ -1,0 +1,81 @@
+import { NextRequest, NextResponse } from "next/server";
+import { createClient } from "@/lib/supabase/server";
+import { createAdminClient } from "@/lib/supabase/admin";
+
+export async function POST(req: NextRequest) {
+  // Authenticate user
+  const supabase = await createClient();
+  const {
+    data: { user },
+  } = await supabase.auth.getUser();
+
+  if (!user) {
+    return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+  }
+
+  // Only Admin and FieldOfficer can upload
+  const { data: profile } = await supabase
+    .from("profiles")
+    .select("role")
+    .eq("id", user.id)
+    .single();
+
+  if (profile?.role !== "Admin" && profile?.role !== "FieldOfficer") {
+    return NextResponse.json({ error: "Forbidden" }, { status: 403 });
+  }
+
+  const formData = await req.formData();
+  const file = formData.get("photo") as File | null;
+
+  if (!file) {
+    return NextResponse.json({ error: "No file provided" }, { status: 400 });
+  }
+
+  // Validate file type
+  const validTypes = ["image/jpeg", "image/jpg", "image/png", "image/webp"];
+  if (!validTypes.includes(file.type)) {
+    return NextResponse.json(
+      { error: "Invalid file type. Only JPG, PNG, and WebP are allowed." },
+      { status: 400 }
+    );
+  }
+
+  // Validate file size (max 5MB)
+  const MAX_SIZE = 5 * 1024 * 1024;
+  if (file.size > MAX_SIZE) {
+    return NextResponse.json(
+      { error: "File too large. Max size is 5MB." },
+      { status: 400 }
+    );
+  }
+
+  const arrayBuffer = await file.arrayBuffer();
+  const buffer = Buffer.from(arrayBuffer);
+
+  // Generate a unique filename
+  const ext = file.name.split(".").pop() || "jpg";
+  const fileName = `${Date.now()}-${Math.random().toString(36).slice(2)}.${ext}`;
+  const filePath = `reports/${fileName}`;
+
+  // Use admin client to bypass RLS for storage (as done in farmer photos)
+  const adminClient = createAdminClient();
+
+  const { error: uploadError } = await adminClient.storage
+    .from("plant-reports")
+    .upload(filePath, buffer, {
+      contentType: file.type,
+      upsert: false,
+    });
+
+  if (uploadError) {
+    console.error("Upload error:", uploadError);
+    return NextResponse.json({ error: uploadError.message }, { status: 500 });
+  }
+
+  // Get the public URL
+  const {
+    data: { publicUrl },
+  } = adminClient.storage.from("plant-reports").getPublicUrl(filePath);
+
+  return NextResponse.json({ url: publicUrl });
+}

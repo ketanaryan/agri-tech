@@ -7,6 +7,7 @@ export async function registerFarmer(data: FormData) {
   const name = data.get("name") as string;
   const phone = data.get("phone") as string;
   const address = data.get("address") as string;
+  const photo_url = data.get("photo_url") as string | null;
 
   if (!name || !phone) return { error: "Missing required fields" };
 
@@ -14,7 +15,7 @@ export async function registerFarmer(data: FormData) {
 
   const { data: newFarmer, error } = await supabase
     .from("farmers")
-    .insert({ name, phone, address })
+    .insert({ name, phone, address, photo_url: photo_url || null })
     .select("id, unique_id")
     .single();
 
@@ -23,6 +24,7 @@ export async function registerFarmer(data: FormData) {
   }
 
   revalidatePath("/bookings");
+  revalidatePath("/farmers");
   return { success: true, data: newFarmer };
 }
 
@@ -30,7 +32,7 @@ export async function createBooking(data: FormData) {
   const farmerId = data.get("farmerId") as string;
   const itemId = data.get("itemId") as string;
   const qty = parseInt(data.get("qty") as string, 10);
-  
+
   if (!farmerId || !itemId || isNaN(qty) || qty <= 0) {
     return { error: "Invalid booking inputs" };
   }
@@ -49,24 +51,24 @@ export async function createBooking(data: FormData) {
   }
 
   const total_amount = item.rate_per_unit * qty;
-  const booking_amount = total_amount * 0.10; // 10%
+  const booking_amount = total_amount * 0.1; // 10%
   const balance_amount = total_amount - booking_amount; // 90%
 
   // Get user for created_by
-  const { data: { user } } = await supabase.auth.getUser();
+  const {
+    data: { user },
+  } = await supabase.auth.getUser();
 
-  const { error: insertError } = await supabase
-    .from("bookings")
-    .insert({
-      farmer_id: farmerId,
-      item_id: itemId,
-      qty,
-      total_amount,
-      booking_amount,
-      balance_amount,
-      status: "Pending",
-      created_by: user?.id,
-    });
+  const { error: insertError } = await supabase.from("bookings").insert({
+    farmer_id: farmerId,
+    item_id: itemId,
+    qty,
+    total_amount,
+    booking_amount,
+    balance_amount,
+    status: "Pending",
+    created_by: user?.id,
+  });
 
   if (insertError) {
     return { error: insertError.message };

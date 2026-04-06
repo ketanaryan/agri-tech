@@ -1,6 +1,12 @@
 import { createClient } from "@/lib/supabase/server";
 import { redirect } from "next/navigation";
-import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
+import {
+  Card,
+  CardContent,
+  CardHeader,
+  CardTitle,
+  CardDescription,
+} from "@/components/ui/card";
 import {
   Table,
   TableBody,
@@ -9,24 +15,27 @@ import {
   TableHeader,
   TableRow,
 } from "@/components/ui/table";
-import { Input } from "@/components/ui/input";
-import { Button } from "@/components/ui/button";
+import Image from "next/image";
 
 export default async function FarmersDirectoryPage() {
   const supabase = await createClient();
-  const { data: { user } } = await supabase.auth.getUser();
+  const {
+    data: { user },
+  } = await supabase.auth.getUser();
 
   if (!user) redirect("/login");
 
-  const { data: profile } = await supabase.from("profiles").select("role").eq("id", user.id).single();
+  const { data: profile } = await supabase
+    .from("profiles")
+    .select("role")
+    .eq("id", user.id)
+    .single();
   const role = profile?.role;
 
   if (role !== "Admin" && role !== "FieldOfficer" && role !== "Telecaller") {
     redirect("/");
   }
 
-  // Fetch all farmers. Admin sees all, FieldOfficer sees all (or should they only see their own?)
-  // For a master directory, usually Field Officers can query all farmers to prevent duplicate entries, but let's keep it simple.
   const { data: farmers } = await supabase
     .from("farmers")
     .select("*")
@@ -38,20 +47,23 @@ export default async function FarmersDirectoryPage() {
       <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
         <div>
           <h1 className="text-2xl font-bold">Farmer Directory</h1>
-          <p className="text-gray-500 text-sm">Master list of all registered farmers in the system.</p>
+          <p className="text-gray-500 text-sm">
+            Master list of all registered farmers in the system.
+          </p>
         </div>
       </div>
 
       <Card>
         <CardHeader>
           <CardTitle>Registered Farmers</CardTitle>
-          <CardDescription>View contact details and demographics.</CardDescription>
+          <CardDescription>View contact details and photos.</CardDescription>
         </CardHeader>
         <CardContent>
           <div className="border rounded-md overflow-x-auto">
             <Table>
               <TableHeader>
                 <TableRow>
+                  <TableHead>Photo</TableHead>
                   <TableHead>Farmer ID</TableHead>
                   <TableHead>Name</TableHead>
                   <TableHead>Phone Number</TableHead>
@@ -62,16 +74,52 @@ export default async function FarmersDirectoryPage() {
               <TableBody>
                 {farmers?.map((farmer) => (
                   <TableRow key={farmer.id}>
-                    <TableCell className="font-medium text-green-700">{farmer.unique_id}</TableCell>
+                    <TableCell>
+                      <div className="relative w-10 h-10 rounded-full overflow-hidden border border-green-200 bg-green-50 flex items-center justify-center">
+                        {farmer.photo_url ? (
+                          <Image
+                            src={farmer.photo_url}
+                            alt={farmer.name}
+                            fill
+                            className="object-cover"
+                          />
+                        ) : (
+                          <svg
+                            xmlns="http://www.w3.org/2000/svg"
+                            className="h-6 w-6 text-green-300"
+                            fill="none"
+                            viewBox="0 0 24 24"
+                            stroke="currentColor"
+                          >
+                            <path
+                              strokeLinecap="round"
+                              strokeLinejoin="round"
+                              strokeWidth={1.5}
+                              d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z"
+                            />
+                          </svg>
+                        )}
+                      </div>
+                    </TableCell>
+                    <TableCell className="font-medium text-green-700">
+                      {farmer.unique_id}
+                    </TableCell>
                     <TableCell>{farmer.name}</TableCell>
                     <TableCell>{farmer.phone}</TableCell>
-                    <TableCell className="max-w-xs truncate">{farmer.address || "N/A"}</TableCell>
-                    <TableCell>{new Date(farmer.created_at).toLocaleDateString()}</TableCell>
+                    <TableCell className="max-w-xs truncate">
+                      {farmer.address || "N/A"}
+                    </TableCell>
+                    <TableCell>
+                      {new Date(farmer.created_at).toLocaleDateString()}
+                    </TableCell>
                   </TableRow>
                 ))}
                 {farmers?.length === 0 && (
                   <TableRow>
-                    <TableCell colSpan={5} className="h-24 text-center text-gray-500">
+                    <TableCell
+                      colSpan={6}
+                      className="h-24 text-center text-gray-500"
+                    >
                       No farmers found in the directory.
                     </TableCell>
                   </TableRow>
