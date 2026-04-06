@@ -13,9 +13,26 @@ export async function registerFarmer(data: FormData) {
 
   const supabase = await createClient();
 
+  const { data: { user } } = await supabase.auth.getUser();
+
+  let district = null;
+  if (user) {
+    const { data: profile } = await supabase
+      .from("profiles")
+      .select("district")
+      .eq("id", user.id)
+      .single();
+    if (profile?.district) {
+      district = profile.district;
+    }
+  }
+
+  const randomDigits = Math.floor(Math.random() * 1000).toString().padStart(3, '0');
+  const unique_id = `BPFRM${randomDigits}`;
+
   const { data: newFarmer, error } = await supabase
     .from("farmers")
-    .insert({ name, phone, address, photo_url: photo_url || null })
+    .insert({ name, phone, address, photo_url: photo_url || null, unique_id, district })
     .select("id, unique_id")
     .single();
 

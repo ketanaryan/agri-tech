@@ -27,20 +27,32 @@ export default async function FarmersDirectoryPage() {
 
   const { data: profile } = await supabase
     .from("profiles")
-    .select("role")
+    .select("role, district")
     .eq("id", user.id)
     .single();
   const role = profile?.role;
 
-  if (role !== "Admin" && role !== "FieldOfficer" && role !== "Telecaller") {
+  if (
+    role !== "Admin" &&
+    role !== "FieldOfficer" &&
+    role !== "Telecaller" &&
+    role !== "Counselor" &&
+    role !== "Leader"
+  ) {
     redirect("/");
   }
 
-  const { data: farmers } = await supabase
+  let query = supabase
     .from("farmers")
     .select("*")
     .is("deleted_at", null)
     .order("created_at", { ascending: false });
+
+  if (role === "Leader" && profile?.district) {
+    query = query.eq("district", profile.district);
+  }
+
+  const { data: farmers } = await query;
 
   return (
     <div className="space-y-6">

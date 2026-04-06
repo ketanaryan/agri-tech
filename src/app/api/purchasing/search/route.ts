@@ -32,7 +32,7 @@ export async function GET(req: NextRequest) {
     const { data: matchedFarmers, error: farmerError } = await supabase
       .from("farmers")
       .select("id")
-      .ilike("unique_id", `%${q}`);
+      .or(`unique_id.ilike.%${q}%,name.ilike.%${q}%`);
 
     if (farmerError) {
       return NextResponse.json(

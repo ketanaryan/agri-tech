@@ -30,7 +30,7 @@ export default async function BookingsPage() {
     .eq("id", user.id)
     .single();
 
-  if (profile?.role !== "Admin" && profile?.role !== "FieldOfficer") {
+  if (profile?.role !== "Admin" && profile?.role !== "FieldOfficer" && profile?.role !== "Counselor") {
     redirect("/"); // redirect unauthorized users
   }
 

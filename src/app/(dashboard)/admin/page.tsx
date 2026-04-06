@@ -129,19 +129,26 @@ export default async function AdminPage() {
                 </div>
               </div>
 
-              <div className="space-y-2">
-                <Label htmlFor="role">Role</Label>
-                <Select name="role" defaultValue="FieldOfficer" required>
-                  <SelectTrigger id="role">
-                    <SelectValue placeholder="Select role" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="Admin">Admin</SelectItem>
-                    <SelectItem value="FieldOfficer">Field Officer</SelectItem>
-                    <SelectItem value="Leader">Leader</SelectItem>
-                    <SelectItem value="Telecaller">Telecaller</SelectItem>
-                  </SelectContent>
-                </Select>
+              <div className="grid grid-cols-2 gap-4 space-y-2 place-items-end">
+                <div className="w-full space-y-2">
+                  <Label htmlFor="role">Role</Label>
+                  <Select name="role" defaultValue="FieldOfficer" required>
+                    <SelectTrigger id="role">
+                      <SelectValue placeholder="Select role" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="Admin">Admin</SelectItem>
+                      <SelectItem value="FieldOfficer">Field Officer</SelectItem>
+                      <SelectItem value="Leader">Leader</SelectItem>
+                      <SelectItem value="Telecaller">Telecaller</SelectItem>
+                      <SelectItem value="Counselor">Counselor</SelectItem>
+                    </SelectContent>
+                  </Select>
+                </div>
+                <div className="w-full space-y-2">
+                  <Label htmlFor="district">Assigned District (Optional)</Label>
+                  <Input id="district" name="district" placeholder="e.g. Pune" />
+                </div>
               </div>
 
               <Button type="submit" className="w-full bg-green-700 hover:bg-green-800">
@@ -210,8 +217,10 @@ export default async function AdminPage() {
           <Table>
             <TableHeader>
               <TableRow>
+                <TableHead>User ID</TableHead>
                 <TableHead>Name</TableHead>
                 <TableHead>Role</TableHead>
+                <TableHead>District</TableHead>
                 <TableHead>Phone</TableHead>
                 <TableHead>Created</TableHead>
               </TableRow>
@@ -219,12 +228,14 @@ export default async function AdminPage() {
             <TableBody>
               {profiles?.map((p) => (
                 <TableRow key={p.id}>
+                  <TableCell className="font-mono text-xs text-gray-500">{p.unique_id || "N/A"}</TableCell>
                   <TableCell className="font-medium">{p.name}</TableCell>
                   <TableCell>
                     <span className="px-2 py-1 bg-green-100 text-green-800 text-xs rounded-full">
                       {p.role}
                     </span>
                   </TableCell>
+                  <TableCell>{p.district || "—"}</TableCell>
                   <TableCell>{p.phone}</TableCell>
                   <TableCell>{new Date(p.created_at).toLocaleDateString()}</TableCell>
                 </TableRow>
