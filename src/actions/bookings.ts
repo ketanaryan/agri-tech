@@ -15,17 +15,20 @@ export async function registerFarmer(data: FormData) {
 
   const { data: { user } } = await supabase.auth.getUser();
 
-  let district = null;
-  if (user) {
-    const { data: profile } = await supabase
-      .from("profiles")
-      .select("district")
-      .eq("id", user.id)
-      .single();
-    if (profile?.district) {
-      district = profile.district;
-    }
+  if (!user) return { error: "Not authenticated" };
+
+  const { data: profile } = await supabase
+    .from("profiles")
+    .select("role, district")
+    .eq("id", user.id)
+    .single();
+
+  // Only FieldOfficer and Admin can register farmers
+  if (profile?.role !== "FieldOfficer" && profile?.role !== "Admin") {
+    return { error: "Unauthorized: Only Field Officers can register farmers" };
   }
+
+  let district = profile?.district || null;
 
   const randomDigits = Math.floor(Math.random() * 1000).toString().padStart(3, '0');
   const unique_id = `BPFRM${randomDigits}`;

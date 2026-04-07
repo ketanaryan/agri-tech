@@ -121,11 +121,8 @@ export default async function CounselorDashboard() {
                       <SelectValue placeholder="Select role" />
                     </SelectTrigger>
                     <SelectContent>
-                      <SelectItem value="Admin">Admin</SelectItem>
                       <SelectItem value="FieldOfficer">Field Officer</SelectItem>
                       <SelectItem value="Leader">Leader</SelectItem>
-                      <SelectItem value="Telecaller">Telecaller</SelectItem>
-                      <SelectItem value="Counselor">Counselor</SelectItem>
                     </SelectContent>
                   </Select>
                 </div>

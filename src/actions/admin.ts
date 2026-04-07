@@ -15,6 +15,41 @@ export async function createUser(data: FormData) {
     return { error: "Missing required fields" };
   }
 
+  // --- Start Role Check ---
+  const { createClient } = await import("@/lib/supabase/server");
+  const supabase = await createClient();
+  const { data: userData, error: userError } = await supabase.auth.getUser();
+
+  if (userError || !userData?.user) {
+    return { error: "Unauthorized caller" };
+  }
+
+  const { data: invokerProfile } = await supabase
+    .from("profiles")
+    .select("role")
+    .eq("id", userData.user.id)
+    .single();
+
+  const invokerRole = invokerProfile?.role;
+
+  if (!invokerRole) {
+    return { error: "Unauthorized: Missing role" };
+  }
+
+  // Enforce creation hierarchy
+  if (invokerRole === "Leader") {
+    if (role !== "FieldOfficer") {
+      return { error: "Leaders can only create Field Officers" };
+    }
+  } else if (invokerRole === "Counselor") {
+    if (role === "Admin" || role === "Telecaller" || role === "Counselor") {
+      return { error: "Counselors cannot create Admins, Telecallers, or Counselors" };
+    }
+  } else if (invokerRole !== "Admin") {
+    return { error: "Unauthorized to create users" };
+  }
+  // --- End Role Check ---
+
   // Generate unique_id
   let prefix = "";
   if (role === "FieldOfficer") prefix = "BPFO";

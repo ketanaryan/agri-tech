@@ -15,6 +15,7 @@ import {
   Leaf,
   BarChart3,
   Package,
+  UserPlus,
 } from "lucide-react";
 
 type UserRole = "Admin" | "FieldOfficer" | "Leader" | "Telecaller" | string;
@@ -45,6 +46,7 @@ export function Sidebar({ role }: SidebarProps) {
         ];
       case "Leader":
         return [
+          { href: "/leader", label: "Manage Team", icon: UserPlus },
           { href: "/purchasing", label: "Purchasing", icon: Search },
           { href: "/farmers", label: "Farmer Directory", icon: Users },
         ];

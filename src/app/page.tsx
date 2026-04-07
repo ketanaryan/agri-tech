@@ -26,7 +26,7 @@ export default async function Home() {
     case "FieldOfficer":
       redirect("/bookings");
     case "Leader":
-      redirect("/purchasing");
+      redirect("/leader");
     case "Telecaller":
       redirect("/telecaller");
     case "Counselor":
