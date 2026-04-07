@@ -88,7 +88,16 @@ export function RegisterFarmerForm() {
       {/* Phone */}
       <div className="space-y-2">
         <Label htmlFor="phone">Phone Number</Label>
-        <Input id="phone" name="phone" placeholder="9876543210" required />
+        <Input
+          id="phone"
+          name="phone"
+          placeholder="9876543210"
+          pattern="[0-9]{10}"
+          maxLength={10}
+          title="Enter exactly 10 digits"
+          inputMode="numeric"
+          required
+        />
       </div>
 
       {/* Address */}

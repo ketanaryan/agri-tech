@@ -20,7 +20,7 @@ export default async function PlantReportPage() {
     .single();
 
   if (profile?.role !== "FieldOfficer" && profile?.role !== "Admin") {
-    redirect("/dashboard"); // or some unauthorized page
+    redirect("/"); // triggers role-based routing in app/page.tsx
   }
 
   return (

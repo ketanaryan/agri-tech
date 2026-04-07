@@ -27,12 +27,14 @@ export default async function DashboardLayout({
 
   const role = profile?.role || "Unknown";
   const userName = profile?.name || user.email;
+  const district = profile?.district || null;
+  const uniqueId = profile?.unique_id || null;
 
   return (
     <div className="flex h-screen bg-background overflow-hidden">
       <Sidebar role={role} />
       <div className="flex-1 flex flex-col min-w-0">
-        <Navbar userName={userName} role={role} />
+        <Navbar userName={userName} role={role} district={district} uniqueId={uniqueId} />
         <main className="flex-1 overflow-y-auto p-6">{children}</main>
       </div>
     </div>

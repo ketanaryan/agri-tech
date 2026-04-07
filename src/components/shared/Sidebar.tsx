@@ -49,12 +49,14 @@ export function Sidebar({ role }: SidebarProps) {
           { href: "/leader", label: "Manage Team", icon: UserPlus },
           { href: "/purchasing", label: "Purchasing", icon: Search },
           { href: "/farmers", label: "Farmer Directory", icon: Users },
+          { href: "/reports", label: "Reports", icon: BarChart3 },
         ];
       case "Counselor":
         return [
           { href: "/counselor", label: "Dashboard", icon: LayoutDashboard },
           { href: "/farmers", label: "Farmer Directory", icon: Users },
           { href: "/bookings", label: "Bookings", icon: FileText },
+          { href: "/reports", label: "Reports", icon: BarChart3 },
         ];
       case "Telecaller":
         return [

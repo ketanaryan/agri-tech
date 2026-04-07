@@ -1,8 +1,5 @@
 import { createClient } from "@/lib/supabase/server";
-import { createUser } from "@/actions/admin";
 import { Button } from "@/components/ui/button";
-import { Input } from "@/components/ui/input";
-import { Label } from "@/components/ui/label";
 import {
   Card,
   CardContent,
@@ -20,6 +17,9 @@ import {
 } from "@/components/ui/table";
 import { redirect } from "next/navigation";
 import { Users, UserPlus, Tractor, FileText } from "lucide-react";
+import { CreateUserForm } from "@/components/shared/CreateUserForm";
+
+
 
 export default async function LeaderDashboard() {
   const supabase = await createClient();
@@ -104,7 +104,13 @@ export default async function LeaderDashboard() {
           </CardHeader>
           <CardContent>
             <div className="text-2xl font-bold">{farmersCount || 0}</div>
-            <p className="text-xs text-gray-500 mt-1">In your district</p>
+            {farmersCount === 0 ? (
+              <p className="text-xs text-orange-500 mt-1">
+                No farmers yet — ask your Field Officers to register farmers in {profile?.district ? `the ${profile.district} district` : "your district"}.
+              </p>
+            ) : (
+              <p className="text-xs text-gray-500 mt-1">In your district</p>
+            )}
           </CardContent>
         </Card>
 
@@ -136,73 +142,11 @@ export default async function LeaderDashboard() {
             </CardDescription>
           </CardHeader>
           <CardContent>
-            <form
-              action={createUser as (data: FormData) => void}
-              className="space-y-4"
-            >
-              {/* Hidden: pre-set role to FieldOfficer */}
-              <input type="hidden" name="role" value="FieldOfficer" />
-              {profile?.district && (
-                <input
-                  type="hidden"
-                  name="district"
-                  value={profile.district}
-                />
-              )}
-
-              <div className="grid grid-cols-2 gap-4">
-                <div className="space-y-2">
-                  <Label htmlFor="fo-name">Full Name</Label>
-                  <Input id="fo-name" name="name" placeholder="Officer name" required />
-                </div>
-                <div className="space-y-2">
-                  <Label htmlFor="fo-phone">Phone</Label>
-                  <Input id="fo-phone" name="phone" placeholder="10-digit number" required />
-                </div>
-              </div>
-
-              <div className="grid grid-cols-2 gap-4">
-                <div className="space-y-2">
-                  <Label htmlFor="fo-email">Email</Label>
-                  <Input
-                    id="fo-email"
-                    name="email"
-                    type="email"
-                    placeholder="officer@example.com"
-                    required
-                  />
-                </div>
-                <div className="space-y-2">
-                  <Label htmlFor="fo-password">Password</Label>
-                  <Input
-                    id="fo-password"
-                    name="password"
-                    type="password"
-                    placeholder="Min. 6 characters"
-                    required
-                  />
-                </div>
-              </div>
-
-              {/* If leader has no district set, allow specifying one */}
-              {!profile?.district && (
-                <div className="space-y-2">
-                  <Label htmlFor="fo-district">Assign District</Label>
-                  <Input
-                    id="fo-district"
-                    name="district"
-                    placeholder="e.g. Nashik"
-                  />
-                </div>
-              )}
-
-              <Button
-                type="submit"
-                className="w-full bg-green-700 hover:bg-green-800"
-              >
-                Create Field Officer
-              </Button>
-            </form>
+            <CreateUserForm
+              allowedRoles={[{ value: "FieldOfficer", label: "Field Officer" }]}
+              fixedDistrict={profile?.district || undefined}
+              showDistrictField={!profile?.district}
+            />
           </CardContent>
         </Card>
 

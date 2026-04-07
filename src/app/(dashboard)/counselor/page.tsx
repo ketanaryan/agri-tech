@@ -1,5 +1,5 @@
 import { createClient } from "@/lib/supabase/server";
-import { createUser, createItem, deleteItem } from "@/actions/admin";
+import { createItem, deleteItem } from "@/actions/admin";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -12,9 +12,9 @@ import {
   TableHeader,
   TableRow,
 } from "@/components/ui/table";
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { redirect } from "next/navigation";
 import { Users, AlertCircle, Tractor } from "lucide-react";
+import { CreateUserForm } from "@/components/shared/CreateUserForm";
 
 export default async function CounselorDashboard() {
   const supabase = await createClient();
@@ -90,52 +90,13 @@ export default async function CounselorDashboard() {
             <CardTitle>Create New User</CardTitle>
           </CardHeader>
           <CardContent>
-            <form action={createUser as (data: FormData) => void} className="space-y-4">
-              <div className="grid grid-cols-2 gap-4">
-                <div className="space-y-2">
-                  <Label htmlFor="name">Full Name</Label>
-                  <Input id="name" name="name" required />
-                </div>
-                <div className="space-y-2">
-                  <Label htmlFor="phone">Phone</Label>
-                  <Input id="phone" name="phone" required />
-                </div>
-              </div>
-              
-              <div className="grid grid-cols-2 gap-4">
-                <div className="space-y-2">
-                  <Label htmlFor="email">Email</Label>
-                  <Input id="email" name="email" type="email" required />
-                </div>
-                <div className="space-y-2">
-                  <Label htmlFor="password">Password</Label>
-                  <Input id="password" name="password" type="password" required />
-                </div>
-              </div>
-
-              <div className="grid grid-cols-2 gap-4 space-y-2 place-items-end">
-                <div className="w-full space-y-2">
-                  <Label htmlFor="role">Role</Label>
-                  <Select name="role" defaultValue="FieldOfficer" required>
-                    <SelectTrigger id="role">
-                      <SelectValue placeholder="Select role" />
-                    </SelectTrigger>
-                    <SelectContent>
-                      <SelectItem value="FieldOfficer">Field Officer</SelectItem>
-                      <SelectItem value="Leader">Leader</SelectItem>
-                    </SelectContent>
-                  </Select>
-                </div>
-                <div className="w-full space-y-2">
-                  <Label htmlFor="district">Assigned District (Optional)</Label>
-                  <Input id="district" name="district" placeholder="e.g. Pune" />
-                </div>
-              </div>
-
-              <Button type="submit" className="w-full bg-green-700 hover:bg-green-800">
-                Create User
-              </Button>
-            </form>
+            <CreateUserForm
+              allowedRoles={[
+                { value: "FieldOfficer", label: "Field Officer" },
+                { value: "Leader", label: "Leader" },
+              ]}
+              defaultRole="FieldOfficer"
+            />
           </CardContent>
         </Card>
 
@@ -209,7 +170,17 @@ export default async function CounselorDashboard() {
             <TableBody>
               {profiles?.map((p) => (
                 <TableRow key={p.id}>
-                  <TableCell className="font-mono text-xs text-gray-500">{p.unique_id || "N/A"}</TableCell>
+                  <TableCell className="font-mono text-xs">
+                    {p.unique_id ? (
+                      <span className="text-green-700">{p.unique_id}</span>
+                    ) : p.role === "Admin" ? (
+                      <span className="px-2 py-0.5 bg-purple-100 text-purple-700 text-[10px] rounded-full font-semibold uppercase tracking-wider">
+                        Admin
+                      </span>
+                    ) : (
+                      <span className="text-gray-400">—</span>
+                    )}
+                  </TableCell>
                   <TableCell className="font-medium">{p.name}</TableCell>
                   <TableCell>
                     <span className="px-2 py-1 bg-green-100 text-green-800 text-xs rounded-full">

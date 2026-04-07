@@ -18,12 +18,14 @@ CREATE TABLE IF NOT EXISTS plant_reports (
 -- 2. Add Row Level Security (RLS) to plant_reports
 ALTER TABLE plant_reports ENABLE ROW LEVEL SECURITY;
 
+DROP POLICY IF EXISTS "Users can create plant reports" ON plant_reports;
 CREATE POLICY "Users can create plant reports"
   ON plant_reports
   FOR INSERT
   TO authenticated
   WITH CHECK (auth.uid() = created_by);
 
+DROP POLICY IF EXISTS "FieldOfficers can view their own reports and Admins can view all" ON plant_reports;
 CREATE POLICY "FieldOfficers can view their own reports and Admins can view all"
   ON plant_reports
   FOR SELECT
@@ -40,12 +42,14 @@ VALUES ('plant-reports', 'plant-reports', true)
 ON CONFLICT (id) DO NOTHING;
 
 -- 4. Storage policy: Allow public READ of all objects in this bucket
+DROP POLICY IF EXISTS "Public read plant report photos" ON storage.objects;
 CREATE POLICY "Public read plant report photos"
   ON storage.objects
   FOR SELECT
   USING (bucket_id = 'plant-reports');
 
 -- 5. Allow authenticated users to insert photos
+DROP POLICY IF EXISTS "Auth users can upload plant report photos" ON storage.objects;
 CREATE POLICY "Auth users can upload plant report photos"
   ON storage.objects
   FOR INSERT
@@ -53,13 +57,17 @@ CREATE POLICY "Auth users can upload plant report photos"
   WITH CHECK (bucket_id = 'plant-reports');
 
 -- 6. Allow authenticated users to delete/update their uploads
+DROP POLICY IF EXISTS "Auth users can update plant report photos" ON storage.objects;
 CREATE POLICY "Auth users can update plant report photos"
   ON storage.objects
   FOR UPDATE
   TO authenticated
   USING (bucket_id = 'plant-reports');
+
+DROP POLICY IF EXISTS "Auth users can delete plant report photos" ON storage.objects;
 CREATE POLICY "Auth users can delete plant report photos"
   ON storage.objects
   FOR DELETE
   TO authenticated
   USING (bucket_id = 'plant-reports');
+
