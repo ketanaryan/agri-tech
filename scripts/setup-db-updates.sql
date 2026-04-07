@@ -18,3 +18,7 @@ ALTER TABLE farmers
 -- DROP TRIGGER IF EXISTS set_farmer_unique_id ON farmers;
 --    But usually, we can just let the application level specify the unique_id explicitly
 --    and it might bypass the trigger if the trigger says `IF NEW.unique_id IS NULL THEN`.
+
+-- 4. Add Counselor to the ENUM user_role
+--    (Note: If you have an ENUM type named 'user_role', you must add Counselor to it)
+ALTER TYPE user_role ADD VALUE IF NOT EXISTS 'Counselor';

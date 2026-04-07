@@ -61,6 +61,7 @@ export async function createUser(data: FormData) {
   }
 
   revalidatePath("/admin");
+  revalidatePath("/counselor");
   return { success: true };
 }
 
@@ -79,6 +80,7 @@ export async function createItem(data: FormData) {
   if (error) return { error: error.message };
 
   revalidatePath("/admin");
+  revalidatePath("/counselor");
   return { success: true };
 }
 
@@ -93,5 +95,6 @@ export async function deleteItem(id: string) {
   if (error) return { error: error.message };
 
   revalidatePath("/admin");
+  revalidatePath("/counselor");
   return { success: true };
 }

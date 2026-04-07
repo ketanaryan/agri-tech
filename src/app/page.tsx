@@ -29,6 +29,8 @@ export default async function Home() {
       redirect("/purchasing");
     case "Telecaller":
       redirect("/telecaller");
+    case "Counselor":
+      redirect("/counselor");
     default:
       redirect("/login");
   }
