@@ -1,18 +1,8 @@
 import { createClient } from "@/lib/supabase/server";
-import { createBooking } from "@/actions/bookings";
-import { Button } from "@/components/ui/button";
-import { Input } from "@/components/ui/input";
-import { Label } from "@/components/ui/label";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from "@/components/ui/select";
 import { redirect } from "next/navigation";
 import { RegisterFarmerForm } from "@/components/shared/RegisterFarmerForm";
+import { CreateBookingForm } from "@/components/shared/CreateBookingForm";
 import Image from "next/image";
 
 export default async function BookingsPage() {
@@ -37,16 +27,24 @@ export default async function BookingsPage() {
   // Fetch necessary data
   const { data: farmers } = await supabase
     .from("farmers")
-    .select("*")
+    .select("id, name, unique_id, phone")
     .is("deleted_at", null)
     .order("created_at", { ascending: false })
     .limit(50);
 
   const { data: items } = await supabase
     .from("items")
-    .select("*")
+    .select("id, name, rate_per_unit")
     .is("deleted_at", null)
     .order("name");
+
+  // Full farmers for recent display
+  const { data: recentFarmers } = await supabase
+    .from("farmers")
+    .select("*")
+    .is("deleted_at", null)
+    .order("created_at", { ascending: false })
+    .limit(9);
 
   return (
     <div className="space-y-6">
@@ -63,74 +61,16 @@ export default async function BookingsPage() {
           </CardContent>
         </Card>
 
-        {/* Create Booking Form */}
+        {/* Create Booking Form — Razorpay-integrated client component */}
         <Card>
           <CardHeader>
             <CardTitle>Create Booking</CardTitle>
           </CardHeader>
           <CardContent>
-            <form
-              action={createBooking as (data: FormData) => void}
-              className="space-y-4"
-            >
-              <div className="space-y-2">
-                <Label htmlFor="farmerId">Select Farmer</Label>
-                <Select name="farmerId" required>
-                  <SelectTrigger id="farmerId">
-                    <SelectValue placeholder="Select a farmer" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    {farmers?.map((f) => (
-                      <SelectItem key={f.id} value={f.id}>
-                        {f.name} ({f.unique_id})
-                      </SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
-              </div>
-
-              <div className="space-y-2">
-                <Label htmlFor="itemId">Select Item</Label>
-                <Select name="itemId" required>
-                  <SelectTrigger id="itemId">
-                    <SelectValue placeholder="Select an item" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    {items?.map((i) => (
-                      <SelectItem key={i.id} value={i.id}>
-                        {i.name} - ₹{i.rate_per_unit}
-                      </SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
-              </div>
-
-              <div className="space-y-2">
-                <Label htmlFor="qty">Quantity</Label>
-                <Input
-                  id="qty"
-                  name="qty"
-                  type="number"
-                  min="1"
-                  defaultValue="1"
-                  required
-                />
-              </div>
-
-              <div className="p-4 bg-gray-50 rounded-md space-y-2 text-sm text-gray-700">
-                <p>
-                  <strong>Note:</strong> Total calculation will be processed
-                  securely on the server. The booking requires 10% advance.
-                </p>
-              </div>
-
-              <Button
-                type="submit"
-                className="w-full bg-green-600 hover:bg-green-700"
-              >
-                Generate Booking
-              </Button>
-            </form>
+            <CreateBookingForm
+              farmers={farmers ?? []}
+              items={items ?? []}
+            />
           </CardContent>
         </Card>
       </div>
@@ -142,7 +82,7 @@ export default async function BookingsPage() {
         </CardHeader>
         <CardContent>
           <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-4">
-            {farmers?.map((f) => (
+            {recentFarmers?.map((f) => (
               <div
                 key={f.id}
                 className="border p-4 rounded-xl shadow-sm flex items-center gap-3"
