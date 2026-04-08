@@ -53,17 +53,50 @@ function loadRazorpayScript(): Promise<boolean> {
 export function CreateBookingForm({ farmers, items }: CreateBookingFormProps) {
   const [farmerId, setFarmerId] = useState("");
   const [itemId, setItemId] = useState("");
-  const [qty, setQty] = useState(1);
+  const [qtyStr, setQtyStr] = useState("1");
+  const [payMethod, setPayMethod] = useState<"online" | "cash">("online");
   const [msg, setMsg] = useState<{ text: string; type: "success" | "error" } | null>(null);
   const [paying, setPaying] = useState(false);
   const [isPending, startTransition] = useTransition();
 
+  const qty = parseInt(qtyStr, 10) || 0;
   const selectedItem = items.find((i) => i.id === itemId);
   const selectedFarmer = farmers.find((f) => f.id === farmerId);
 
   const totalAmount = selectedItem ? selectedItem.rate_per_unit * qty : 0;
-  const advanceAmount = totalAmount * 0.1; // 10% advance
-  const balanceAmount = totalAmount - advanceAmount;
+  const advanceAmount = Math.round(totalAmount * 0.1 * 100) / 100;
+  const balanceAmount = Math.round((totalAmount - advanceAmount) * 100) / 100;
+
+  const createBookingInDB = async (razorpayData?: {
+    razorpay_order_id: string;
+    razorpay_payment_id: string;
+    razorpay_signature: string;
+  }) => {
+    const bookRes = await fetch("/api/bookings/create", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        farmerId,
+        itemId,
+        qty,
+        paymentMethod: payMethod,
+        ...razorpayData,
+      }),
+    });
+    const bookData = await bookRes.json();
+    if (!bookRes.ok || bookData.error) {
+      setMsg({ text: `Booking failed: ${bookData.error}`, type: "error" });
+    } else {
+      setMsg({
+        text: `✅ Booking created! Advance of ₹${advanceAmount.toFixed(2)} paid (${payMethod === "cash" ? "Cash" : "Online"}). ID: ${bookData.bookingId?.slice(0, 8)}`,
+        type: "success",
+      });
+      setFarmerId("");
+      setItemId("");
+      setQtyStr("1");
+    }
+    setPaying(false);
+  };
 
   const handleGenerateBooking = async () => {
     if (!farmerId || !itemId || qty <= 0) {
@@ -75,7 +108,14 @@ export function CreateBookingForm({ farmers, items }: CreateBookingFormProps) {
     setMsg(null);
 
     try {
-      // Load Razorpay SDK
+      if (payMethod === "cash") {
+        startTransition(async () => {
+          await createBookingInDB();
+        });
+        return;
+      }
+
+      // Online: Razorpay flow
       const loaded = await loadRazorpayScript();
       if (!loaded) {
         setMsg({ text: "Failed to load Razorpay. Check your internet connection.", type: "error" });
@@ -83,19 +123,13 @@ export function CreateBookingForm({ farmers, items }: CreateBookingFormProps) {
         return;
       }
 
-      // Create Razorpay order via our API
       const orderRes = await fetch("/api/razorpay/create-order", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
           amount: advanceAmount,
-          receipt: `advance_${farmerId.slice(0, 8)}_${Date.now()}`,
-          notes: {
-            farmer_id: farmerId,
-            item_id: itemId,
-            qty: qty.toString(),
-            payment_type: "advance",
-          },
+          receipt: `adv_${farmerId.slice(0, 8)}_${Date.now()}`,
+          notes: { farmer_id: farmerId, item_id: itemId, qty: qty.toString(), type: "advance" },
         }),
       });
 
@@ -106,7 +140,6 @@ export function CreateBookingForm({ farmers, items }: CreateBookingFormProps) {
         return;
       }
 
-      // Open Razorpay checkout
       const options = {
         key: process.env.NEXT_PUBLIC_RAZORPAY_KEY_ID ?? "",
         amount: orderData.amount,
@@ -114,49 +147,15 @@ export function CreateBookingForm({ farmers, items }: CreateBookingFormProps) {
         name: "AgriTech ERP",
         description: `Advance for ${selectedItem?.name} × ${qty}`,
         order_id: orderData.orderId,
-        prefill: {
-          name: selectedFarmer?.name ?? "",
-          contact: selectedFarmer?.phone ?? "",
-        },
-        notes: {
-          farmer: selectedFarmer?.name ?? "",
-          item: selectedItem?.name ?? "",
-        },
+        prefill: { name: selectedFarmer?.name ?? "", contact: selectedFarmer?.phone ?? "" },
         theme: { color: "#16a34a" },
         handler: async function (response: any) {
-          // Payment succeeded → create booking in DB
           startTransition(async () => {
-            try {
-              const bookRes = await fetch("/api/bookings/create", {
-                method: "POST",
-                headers: { "Content-Type": "application/json" },
-                body: JSON.stringify({
-                  farmerId,
-                  itemId,
-                  qty,
-                  razorpay_order_id: response.razorpay_order_id,
-                  razorpay_payment_id: response.razorpay_payment_id,
-                  razorpay_signature: response.razorpay_signature,
-                }),
-              });
-              const bookData = await bookRes.json();
-              if (!bookRes.ok || bookData.error) {
-                setMsg({ text: `Payment done but booking failed: ${bookData.error}`, type: "error" });
-              } else {
-                setMsg({
-                  text: `✅ Booking created! Advance of ₹${advanceAmount.toFixed(2)} paid. Booking ID: ${bookData.bookingId?.slice(0, 8)}`,
-                  type: "success",
-                });
-                // Reset form
-                setFarmerId("");
-                setItemId("");
-                setQty(1);
-              }
-            } catch (e: any) {
-              setMsg({ text: "Booking creation failed after payment.", type: "error" });
-            } finally {
-              setPaying(false);
-            }
+            await createBookingInDB({
+              razorpay_order_id: response.razorpay_order_id,
+              razorpay_payment_id: response.razorpay_payment_id,
+              razorpay_signature: response.razorpay_signature,
+            });
           });
         },
         modal: {
@@ -184,7 +183,7 @@ export function CreateBookingForm({ farmers, items }: CreateBookingFormProps) {
       {/* Farmer Select */}
       <div className="space-y-2">
         <Label htmlFor="farmerId">Select Farmer</Label>
-        <Select value={farmerId} onValueChange={setFarmerId} required>
+        <Select value={farmerId} onValueChange={(v) => setFarmerId(v ?? "")}>
           <SelectTrigger id="farmerId">
             <SelectValue placeholder="Select a farmer" />
           </SelectTrigger>
@@ -201,32 +200,65 @@ export function CreateBookingForm({ farmers, items }: CreateBookingFormProps) {
       {/* Item Select */}
       <div className="space-y-2">
         <Label htmlFor="itemId">Select Item</Label>
-        <Select value={itemId} onValueChange={setItemId} required>
+        <Select value={itemId} onValueChange={(v) => setItemId(v ?? "")}>
           <SelectTrigger id="itemId">
             <SelectValue placeholder="Select an item" />
           </SelectTrigger>
           <SelectContent>
             {items.map((i) => (
               <SelectItem key={i.id} value={i.id}>
-                {i.name} - ₹{i.rate_per_unit}
+                {i.name} — ₹{i.rate_per_unit}
               </SelectItem>
             ))}
           </SelectContent>
         </Select>
       </div>
 
-      {/* Quantity */}
+      {/* Quantity — plain text input, no browser spinner */}
       <div className="space-y-2">
         <Label htmlFor="qty">Quantity</Label>
         <Input
           id="qty"
           name="qty"
-          type="number"
-          min="1"
-          value={qty}
-          onChange={(e) => setQty(parseInt(e.target.value, 10) || 1)}
-          required
+          type="text"
+          inputMode="numeric"
+          pattern="[0-9]*"
+          placeholder="Enter quantity (e.g. 47)"
+          value={qtyStr}
+          onChange={(e) => {
+            const val = e.target.value.replace(/[^0-9]/g, "");
+            setQtyStr(val);
+          }}
         />
+      </div>
+
+      {/* Payment Method Toggle */}
+      <div className="space-y-2">
+        <Label>Advance Payment Method</Label>
+        <div className="flex gap-2">
+          <button
+            type="button"
+            onClick={() => setPayMethod("online")}
+            className={`flex-1 py-2 px-3 rounded-lg border text-sm font-medium transition-all ${
+              payMethod === "online"
+                ? "bg-green-600 text-white border-green-600"
+                : "bg-white text-gray-600 border-gray-300 hover:border-green-400"
+            }`}
+          >
+            💳 Online (Razorpay)
+          </button>
+          <button
+            type="button"
+            onClick={() => setPayMethod("cash")}
+            className={`flex-1 py-2 px-3 rounded-lg border text-sm font-medium transition-all ${
+              payMethod === "cash"
+                ? "bg-amber-500 text-white border-amber-500"
+                : "bg-white text-gray-600 border-gray-300 hover:border-amber-400"
+            }`}
+          >
+            💵 Cash
+          </button>
+        </div>
       </div>
 
       {/* Price Preview */}
@@ -236,23 +268,19 @@ export function CreateBookingForm({ farmers, items }: CreateBookingFormProps) {
             <span className="text-gray-600">Total Amount:</span>
             <span className="font-semibold">₹{totalAmount.toLocaleString("en-IN")}</span>
           </div>
-          <div className="flex justify-between text-green-700">
-            <span>Advance (10%):</span>
-            <span className="font-semibold">₹{advanceAmount.toLocaleString("en-IN", { minimumFractionDigits: 2 })}</span>
+          <div className="flex justify-between text-green-700 font-medium">
+            <span>Advance Now (10%):</span>
+            <span>₹{advanceAmount.toLocaleString("en-IN", { minimumFractionDigits: 2 })}</span>
           </div>
-          <div className="flex justify-between text-gray-500 text-xs border-t pt-1 mt-1">
-            <span>Balance Due Later:</span>
+          <div className="flex justify-between text-gray-400 text-xs border-t pt-1 mt-1">
+            <span>Balance at Delivery:</span>
             <span>₹{balanceAmount.toLocaleString("en-IN", { minimumFractionDigits: 2 })}</span>
           </div>
-          <p className="text-xs text-gray-400 mt-1">
-            💳 You will be charged ₹{advanceAmount.toFixed(2)} now via Razorpay.
+          <p className="text-xs text-gray-400">
+            {payMethod === "online"
+              ? `💳 Razorpay will open for ₹${advanceAmount.toFixed(2)}.`
+              : `💵 Collect ₹${advanceAmount.toFixed(2)} cash and confirm.`}
           </p>
-        </div>
-      )}
-
-      {!selectedItem && (
-        <div className="p-3 bg-gray-50 rounded-md text-sm text-gray-500">
-          <strong>Note:</strong> Booking requires 10% advance payment via Razorpay.
         </div>
       )}
 
@@ -277,8 +305,10 @@ export function CreateBookingForm({ farmers, items }: CreateBookingFormProps) {
       >
         {paying || isPending
           ? "Processing..."
-          : selectedItem
-          ? `Pay ₹${advanceAmount.toFixed(2)} & Generate Booking`
+          : selectedItem && qty > 0
+          ? payMethod === "online"
+            ? `Pay ₹${advanceAmount.toFixed(2)} & Generate Booking`
+            : `Confirm Cash ₹${advanceAmount.toFixed(2)} & Book`
           : "Generate Booking"}
       </Button>
     </div>

@@ -33,6 +33,7 @@ export async function POST(req: NextRequest) {
       farmerId,
       itemId,
       qty,
+      paymentMethod = "online",
       razorpay_order_id,
       razorpay_payment_id,
       razorpay_signature,
@@ -42,18 +43,23 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ error: "Invalid booking inputs" }, { status: 400 });
     }
 
-    // Verify Razorpay signature
-    const key_secret = process.env.RAZORPAY_KEY_SECRET!;
-    const generatedSignature = crypto
-      .createHmac("sha256", key_secret)
-      .update(`${razorpay_order_id}|${razorpay_payment_id}`)
-      .digest("hex");
+    // Verify Razorpay signature only for online payments
+    if (paymentMethod === "online") {
+      if (!razorpay_order_id || !razorpay_payment_id || !razorpay_signature) {
+        return NextResponse.json({ error: "Missing Razorpay payment details" }, { status: 400 });
+      }
+      const key_secret = process.env.RAZORPAY_KEY_SECRET!;
+      const generatedSignature = crypto
+        .createHmac("sha256", key_secret)
+        .update(`${razorpay_order_id}|${razorpay_payment_id}`)
+        .digest("hex");
 
-    if (generatedSignature !== razorpay_signature) {
-      return NextResponse.json(
-        { error: "Payment verification failed. Please contact support." },
-        { status: 400 }
-      );
+      if (generatedSignature !== razorpay_signature) {
+        return NextResponse.json(
+          { error: "Payment verification failed. Please contact support." },
+          { status: 400 }
+        );
+      }
     }
 
     // Fetch item rate
@@ -68,29 +74,34 @@ export async function POST(req: NextRequest) {
     }
 
     const total_amount = item.rate_per_unit * qty;
-    const booking_amount = total_amount * 0.1;
-    const balance_amount = total_amount - booking_amount;
+    const booking_amount = Math.round(total_amount * 0.1 * 100) / 100;
+    const balance_amount = Math.round((total_amount - booking_amount) * 100) / 100;
 
-    // Insert booking
+    // Insert booking — try with razorpay columns first, fallback without
+    const insertData: Record<string, any> = {
+      farmer_id: farmerId,
+      item_id: itemId,
+      qty,
+      total_amount,
+      booking_amount,
+      balance_amount,
+      status: "Pending",
+      created_by: user.id,
+      advance_payment_method: paymentMethod,
+    };
+    if (paymentMethod === "online") {
+      insertData.razorpay_order_id = razorpay_order_id ?? null;
+      insertData.razorpay_payment_id = razorpay_payment_id ?? null;
+    }
+
     const { data: newBooking, error: insertError } = await supabase
       .from("bookings")
-      .insert({
-        farmer_id: farmerId,
-        item_id: itemId,
-        qty,
-        total_amount,
-        booking_amount,
-        balance_amount,
-        status: "Pending",
-        created_by: user.id,
-        razorpay_order_id: razorpay_order_id ?? null,
-        razorpay_payment_id: razorpay_payment_id ?? null,
-      })
+      .insert(insertData)
       .select("id")
       .single();
 
     if (insertError) {
-      // If columns don't exist yet, try without Razorpay fields
+      // Fallback — insert without optional tracking columns
       const { data: fallback, error: fallbackErr } = await supabase
         .from("bookings")
         .insert({

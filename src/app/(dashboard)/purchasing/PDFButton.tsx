@@ -44,80 +44,116 @@ function loadRazorpayScript(): Promise<boolean> {
   });
 }
 
-function generatePDF(booking: BookingInfo) {
+function generatePDF(booking: BookingInfo, payMethod: string) {
   const doc = new jsPDF();
 
   doc.setFontSize(20);
-  doc.text("AgriTech Final Delivery Slip", 14, 22);
+  doc.text("AgriTech — Final Delivery Slip", 14, 22);
 
+  doc.setFontSize(11);
+  doc.setTextColor(100);
+  doc.text(`Date: ${new Date().toLocaleDateString("en-IN")}`, 14, 31);
+  doc.text(`Booking ID: ${booking.id.slice(0, 8).toUpperCase()}`, 14, 37);
+  doc.text(`Payment Method: ${payMethod === "cash" ? "Cash" : "Online (Razorpay)"}`, 14, 43);
+
+  doc.setTextColor(0);
   doc.setFontSize(12);
-  doc.text(`Date: ${new Date().toLocaleDateString()}`, 14, 32);
-  doc.text(`Booking ID: ${booking.id.slice(0, 8)}`, 14, 38);
-
-  doc.text("Farmer Details:", 14, 50);
+  doc.text("Farmer Details:", 14, 53);
   doc.setFontSize(10);
-  doc.text(`Name: ${booking.farmer.name} (${booking.farmer.unique_id})`, 14, 56);
-  doc.text(`Phone: ${booking.farmer.phone}`, 14, 62);
-  doc.text(`Address: ${booking.farmer.address || "N/A"}`, 14, 68);
+  doc.text(`Name: ${booking.farmer.name} (${booking.farmer.unique_id})`, 14, 59);
+  doc.text(`Phone: ${booking.farmer.phone}`, 14, 65);
+  doc.text(`Address: ${booking.farmer.address || "N/A"}`, 14, 71);
 
   (doc as any).autoTable({
-    startY: 75,
-    head: [["Item", "Rate", "Quantity", "Total Amt", "Balance Paid"]],
+    startY: 78,
+    head: [["Item", "Rate (₹)", "Qty", "Total (₹)", "Advance (₹)", "Balance Paid (₹)"]],
     body: [
       [
         booking.item.name,
-        `Rs. ${booking.item.rate_per_unit}`,
+        booking.item.rate_per_unit,
         booking.qty,
-        `Rs. ${booking.total_amount}`,
-        `Rs. ${booking.balance_amount}`,
+        booking.total_amount,
+        booking.booking_amount,
+        booking.balance_amount,
       ],
     ],
     theme: "grid",
+    styles: { fontSize: 9 },
+    headStyles: { fillColor: [22, 163, 74] },
   });
 
-  const finalY = (doc as any).lastAutoTable.finalY || 90;
-  doc.setFontSize(12);
+  const finalY = (doc as any).lastAutoTable.finalY || 95;
+  doc.setFontSize(13);
   doc.setTextColor(0, 128, 0);
-  doc.text("PAYMENT COMPLETED", 14, finalY + 15);
+  doc.text("✓ DELIVERED — PAYMENT COMPLETED", 14, finalY + 14);
 
-  doc.save(`DeliverySlip_${booking.farmer.unique_id}.pdf`);
+  doc.save(`DeliverySlip_${booking.farmer.unique_id}_${Date.now()}.pdf`);
+}
+
+async function completeBooking(
+  bookingId: string,
+  paymentMethod: "online" | "cash",
+  razorpayData?: { razorpay_order_id: string; razorpay_payment_id: string; razorpay_signature: string }
+) {
+  const res = await fetch("/api/bookings/complete", {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ bookingId, paymentMethod, ...razorpayData }),
+  });
+  return res;
 }
 
 export function PDFButton({ booking }: { booking: BookingInfo }) {
-  const [loading, setLoading] = useState(false);
+  const [loading, setLoading] = useState<"online" | "cash" | null>(null);
   const [done, setDone] = useState(false);
+  const [paidMethod, setPaidMethod] = useState<string>("");
   const [error, setError] = useState<string | null>(null);
 
-  const handleProcess = async () => {
-    setLoading(true);
+  const handleCash = async () => {
+    setLoading("cash");
     setError(null);
+    try {
+      const res = await completeBooking(booking.id, "cash");
+      if (res.ok) {
+        setPaidMethod("cash");
+        setDone(true);
+        generatePDF(booking, "cash");
+      } else {
+        const d = await res.json();
+        setError(d.error ?? "Could not complete booking.");
+      }
+    } catch {
+      setError("Failed to complete booking.");
+    } finally {
+      setLoading(null);
+    }
+  };
 
+  const handleOnline = async () => {
+    setLoading("online");
+    setError(null);
     try {
       const loaded = await loadRazorpayScript();
       if (!loaded) {
         setError("Failed to load Razorpay. Check your internet connection.");
-        setLoading(false);
+        setLoading(null);
         return;
       }
 
-      // Create Razorpay order for balance amount
       const orderRes = await fetch("/api/razorpay/create-order", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
           amount: booking.balance_amount,
-          receipt: `balance_${booking.id.slice(0, 8)}_${Date.now()}`,
-          notes: {
-            booking_id: booking.id,
-            payment_type: "balance",
-          },
+          receipt: `bal_${booking.id.slice(0, 8)}_${Date.now()}`,
+          notes: { booking_id: booking.id, payment_type: "balance" },
         }),
       });
 
       const orderData = await orderRes.json();
       if (!orderRes.ok || orderData.error) {
         setError(orderData.error ?? "Could not create payment order.");
-        setLoading(false);
+        setLoading(null);
         return;
       }
 
@@ -126,48 +162,35 @@ export function PDFButton({ booking }: { booking: BookingInfo }) {
         amount: orderData.amount,
         currency: orderData.currency,
         name: "AgriTech ERP",
-        description: `Balance payment for ${booking.item.name}`,
+        description: `Balance payment — ${booking.item.name}`,
         order_id: orderData.orderId,
-        prefill: {
-          name: booking.farmer.name,
-          contact: booking.farmer.phone,
-        },
-        notes: {
-          booking_id: booking.id,
-          farmer: booking.farmer.name,
-        },
+        prefill: { name: booking.farmer.name, contact: booking.farmer.phone },
         theme: { color: "#16a34a" },
         handler: async function (response: any) {
-          // Mark booking as Completed
           try {
-            const completeRes = await fetch("/api/bookings/complete", {
-              method: "POST",
-              headers: { "Content-Type": "application/json" },
-              body: JSON.stringify({
-                bookingId: booking.id,
-                razorpay_order_id: response.razorpay_order_id,
-                razorpay_payment_id: response.razorpay_payment_id,
-                razorpay_signature: response.razorpay_signature,
-              }),
+            const res = await completeBooking(booking.id, "online", {
+              razorpay_order_id: response.razorpay_order_id,
+              razorpay_payment_id: response.razorpay_payment_id,
+              razorpay_signature: response.razorpay_signature,
             });
-
-            if (completeRes.ok) {
-              generatePDF(booking);
+            if (res.ok) {
+              setPaidMethod("online");
               setDone(true);
+              generatePDF(booking, "online");
             } else {
-              const d = await completeRes.json();
-              setError(d.error ?? "Could not complete booking.");
+              const d = await res.json();
+              setError(d.error ?? "Could not complete booking after payment.");
             }
           } catch {
             setError("Failed to complete booking after payment.");
           } finally {
-            setLoading(false);
+            setLoading(null);
           }
         },
         modal: {
           ondismiss: () => {
             setError("Payment cancelled.");
-            setLoading(false);
+            setLoading(null);
           },
         },
       };
@@ -175,28 +198,30 @@ export function PDFButton({ booking }: { booking: BookingInfo }) {
       const rzp = new window.Razorpay(options);
       rzp.on("payment.failed", (response: any) => {
         setError(`Payment failed: ${response.error.description}`);
-        setLoading(false);
+        setLoading(null);
       });
       rzp.open();
     } catch (err: any) {
       setError(err?.message ?? "Unexpected error.");
-      setLoading(false);
+      setLoading(null);
     }
   };
 
   if (done) {
     return (
-      <div className="flex gap-2">
+      <div className="space-y-2">
+        <div className="flex items-center gap-2 p-2 bg-green-50 rounded-lg border border-green-200">
+          <span className="text-green-700 font-medium text-sm">
+            ✅ Delivered — {paidMethod === "cash" ? "Cash Paid" : "Online Paid"}
+          </span>
+        </div>
         <Button
-          onClick={() => generatePDF(booking)}
+          onClick={() => generatePDF(booking, paidMethod)}
           variant="outline"
-          className="w-full border-green-600 text-green-700"
+          className="w-full border-green-600 text-green-700 text-sm"
         >
-          🖨 Re-print Slip
+          🖨 Re-print Delivery Slip
         </Button>
-        <span className="text-green-700 text-sm font-medium self-center whitespace-nowrap">
-          ✅ Paid
-        </span>
       </div>
     );
   }
@@ -204,15 +229,32 @@ export function PDFButton({ booking }: { booking: BookingInfo }) {
   return (
     <div className="space-y-2">
       {error && (
-        <p className="text-sm text-red-600 font-medium">{error}</p>
+        <p className="text-sm text-red-600 font-medium bg-red-50 p-2 rounded">{error}</p>
       )}
-      <Button
-        onClick={handleProcess}
-        disabled={loading}
-        className="bg-green-600 hover:bg-green-700 w-full font-semibold"
-      >
-        {loading ? "Processing..." : `Pay ₹${booking.balance_amount} & Print Slip`}
-      </Button>
+
+      <p className="text-xs text-gray-500 font-medium uppercase tracking-wide">
+        Collect Balance: ₹{booking.balance_amount}
+      </p>
+
+      <div className="flex gap-2">
+        {/* Online */}
+        <Button
+          onClick={handleOnline}
+          disabled={!!loading}
+          className="flex-1 bg-green-600 hover:bg-green-700 text-sm"
+        >
+          {loading === "online" ? "Opening..." : "💳 Pay Online"}
+        </Button>
+
+        {/* Cash */}
+        <Button
+          onClick={handleCash}
+          disabled={!!loading}
+          className="flex-1 bg-amber-500 hover:bg-amber-600 text-sm text-white"
+        >
+          {loading === "cash" ? "Confirming..." : "💵 Cash Paid"}
+        </Button>
+      </div>
     </div>
   );
 }

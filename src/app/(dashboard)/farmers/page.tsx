@@ -16,6 +16,7 @@ import {
   TableRow,
 } from "@/components/ui/table";
 import Image from "next/image";
+import Link from "next/link";
 import { FarmerSearchInput } from "@/components/shared/FarmerSearchInput";
 import { Suspense } from "react";
 
@@ -156,10 +157,22 @@ export default async function FarmersDirectoryPage({
                         )}
                       </div>
                     </TableCell>
-                    <TableCell className="font-medium text-green-700">
-                      {farmer.unique_id}
+                    <TableCell className="font-medium">
+                      <Link
+                        href={`/farmers/${farmer.id}`}
+                        className="text-green-700 hover:text-green-900 hover:underline font-semibold"
+                      >
+                        {farmer.unique_id}
+                      </Link>
                     </TableCell>
-                    <TableCell>{farmer.name}</TableCell>
+                    <TableCell>
+                      <Link
+                        href={`/farmers/${farmer.id}`}
+                        className="hover:text-green-700 hover:underline"
+                      >
+                        {farmer.name}
+                      </Link>
+                    </TableCell>
                     <TableCell>{farmer.phone}</TableCell>
                     <TableCell className="max-w-xs truncate">
                       {farmer.address || "N/A"}
