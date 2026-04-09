@@ -54,7 +54,7 @@ export function CreateBookingForm({ farmers, items }: CreateBookingFormProps) {
   const [farmerId, setFarmerId] = useState("");
   const [itemId, setItemId] = useState("");
   const [qtyStr, setQtyStr] = useState("1");
-  const [payMethod, setPayMethod] = useState<"online" | "cash">("online");
+  const payMethod = "online";
   const [msg, setMsg] = useState<{ text: string; type: "success" | "error" } | null>(null);
   const [paying, setPaying] = useState(false);
   const [isPending, startTransition] = useTransition();
@@ -88,7 +88,7 @@ export function CreateBookingForm({ farmers, items }: CreateBookingFormProps) {
       setMsg({ text: `Booking failed: ${bookData.error}`, type: "error" });
     } else {
       setMsg({
-        text: `✅ Booking created! Advance of ₹${advanceAmount.toFixed(2)} paid (${payMethod === "cash" ? "Cash" : "Online"}). ID: ${bookData.bookingId?.slice(0, 8)}`,
+        text: `✅ Booking created! Advance of ₹${advanceAmount.toFixed(2)} paid (Online). ID: ${bookData.bookingId?.slice(0, 8)}`,
         type: "success",
       });
       setFarmerId("");
@@ -108,13 +108,6 @@ export function CreateBookingForm({ farmers, items }: CreateBookingFormProps) {
     setMsg(null);
 
     try {
-      if (payMethod === "cash") {
-        startTransition(async () => {
-          await createBookingInDB();
-        });
-        return;
-      }
-
       // Online: Razorpay flow
       const loaded = await loadRazorpayScript();
       if (!loaded) {
@@ -232,32 +225,11 @@ export function CreateBookingForm({ farmers, items }: CreateBookingFormProps) {
         />
       </div>
 
-      {/* Payment Method Toggle */}
+      {/* Payment Method */}
       <div className="space-y-2">
         <Label>Advance Payment Method</Label>
-        <div className="flex gap-2">
-          <button
-            type="button"
-            onClick={() => setPayMethod("online")}
-            className={`flex-1 py-2 px-3 rounded-lg border text-sm font-medium transition-all ${
-              payMethod === "online"
-                ? "bg-green-600 text-white border-green-600"
-                : "bg-white text-gray-600 border-gray-300 hover:border-green-400"
-            }`}
-          >
-            💳 Online (Razorpay)
-          </button>
-          <button
-            type="button"
-            onClick={() => setPayMethod("cash")}
-            className={`flex-1 py-2 px-3 rounded-lg border text-sm font-medium transition-all ${
-              payMethod === "cash"
-                ? "bg-amber-500 text-white border-amber-500"
-                : "bg-white text-gray-600 border-gray-300 hover:border-amber-400"
-            }`}
-          >
-            💵 Cash
-          </button>
+        <div className="p-3 bg-gray-50 border border-gray-200 rounded-lg text-sm text-gray-700 flex items-center">
+          💳 Online Payment Only (via Razorpay)
         </div>
       </div>
 
@@ -277,9 +249,7 @@ export function CreateBookingForm({ farmers, items }: CreateBookingFormProps) {
             <span>₹{balanceAmount.toLocaleString("en-IN", { minimumFractionDigits: 2 })}</span>
           </div>
           <p className="text-xs text-gray-400">
-            {payMethod === "online"
-              ? `💳 Razorpay will open for ₹${advanceAmount.toFixed(2)}.`
-              : `💵 Collect ₹${advanceAmount.toFixed(2)} cash and confirm.`}
+            💳 Razorpay will open for ₹{advanceAmount.toFixed(2)}.
           </p>
         </div>
       )}
@@ -306,9 +276,7 @@ export function CreateBookingForm({ farmers, items }: CreateBookingFormProps) {
         {paying || isPending
           ? "Processing..."
           : selectedItem && qty > 0
-          ? payMethod === "online"
-            ? `Pay ₹${advanceAmount.toFixed(2)} & Generate Booking`
-            : `Confirm Cash ₹${advanceAmount.toFixed(2)} & Book`
+          ? `Pay ₹${advanceAmount.toFixed(2)} & Generate Booking`
           : "Generate Booking"}
       </Button>
     </div>
