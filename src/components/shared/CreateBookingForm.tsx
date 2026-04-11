@@ -70,7 +70,7 @@ export function CreateBookingForm({ farmers, items }: CreateBookingFormProps) {
   const [itemId, setItemId] = useState("");
   const [qtyStr, setQtyStr] = useState("1");
   const payMethod = "online";
-  const [msg, setMsg] = useState<{ text: string; type: "success" | "error"; waUrl?: string; localPdfUrl?: string } | null>(null);
+  const [msg, setMsg] = useState<{ text: string; type: "success" | "error"; waUrl?: string; localPdfUrl?: string; bookingId?: string } | null>(null);
   const [paying, setPaying] = useState(false);
   const [isPending, startTransition] = useTransition();
 
@@ -222,7 +222,8 @@ export function CreateBookingForm({ farmers, items }: CreateBookingFormProps) {
         text: `✅ Booking created! Advance of ₹${advanceAmount.toFixed(2)} paid (Online). ID: ${bookData.bookingId?.slice(0, 8)}`,
         type: "success",
         waUrl,
-        localPdfUrl
+        localPdfUrl,
+        bookingId: bookData.bookingId
       });
       // Reset form
       setFarmerId("");
@@ -538,7 +539,7 @@ export function CreateBookingForm({ farmers, items }: CreateBookingFormProps) {
               {msg.localPdfUrl && (
                 <a 
                   href={msg.localPdfUrl}
-                  download={`Receipt_${bookData?.bookingId?.slice(0,8) || "new"}.pdf`}
+                  download={`Receipt_${msg.bookingId?.slice(0,8) || "new"}.pdf`}
                   className="flex-1 inline-flex items-center justify-center gap-2 px-4 py-2 bg-white border border-gray-300 hover:bg-gray-50 text-gray-700 rounded-md transition-colors font-semibold shadow-sm"
                 >
                   <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" fill="none" viewBox="0 0 24 24" strokeWidth={2} stroke="currentColor">
