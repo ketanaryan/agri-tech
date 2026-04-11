@@ -152,7 +152,69 @@ export function CreateBookingForm({ farmers, items }: CreateBookingFormProps) {
       const itemName = selectedItem?.name;
       const fUid = bookData.finalFarmerUniqueId || (farmerMode === "existing" ? selectedFarmer?.unique_id : "Processing");
 
-      const waText = `Hello ${fName},\nYour AgriTech ERP Booking is Confirmed.\nFarmer ID: ${fUid}\nItem: ${itemName}\nQuantity: ${qty}\nAdvance Paid: ₹${advanceAmount.toLocaleString("en-IN", { minimumFractionDigits: 2 })}\nThank you!`;
+      // Generate PDF Receipt
+      const { jsPDF } = await import("jspdf"); // Dynamic import for client side
+      const doc = new jsPDF();
+      doc.setFontSize(22);
+      doc.setTextColor(22, 163, 74); // green-600
+      doc.text("AgriTech ERP - Official Receipt", 20, 20);
+
+      doc.setFontSize(12);
+      doc.setTextColor(0, 0, 0);
+      doc.text(`Date: ${new Date().toLocaleDateString()}`, 20, 30);
+      doc.text(`Booking ID: ${bookData.bookingId?.slice(0, 8) || "N/A"}`, 20, 38);
+      
+      doc.setFontSize(14);
+      doc.setTextColor(50, 50, 50);
+      doc.text("Farmer Details:", 20, 50);
+      doc.setFontSize(12);
+      doc.text(`Name: ${fName}`, 20, 58);
+      doc.text(`Farmer ID: ${fUid}`, 20, 66);
+      doc.text(`Phone: ${fPhone}`, 20, 74);
+
+      doc.setFontSize(14);
+      doc.text("Order Summary:", 20, 90);
+      doc.setFontSize(12);
+      doc.text(`Item: ${itemName}`, 20, 98);
+      doc.text(`Quantity: ${qty}`, 20, 106);
+      doc.text(`Total Amount: Rs. ${totalAmount.toFixed(2)}`, 20, 114);
+      
+      doc.setFontSize(12);
+      doc.setTextColor(22, 163, 74);
+      doc.text(`Advance Paid (10%): Rs. ${advanceAmount.toFixed(2)}`, 20, 126);
+      
+      doc.setTextColor(220, 38, 38);
+      doc.text(`Balance Due at Delivery: Rs. ${balanceAmount.toFixed(2)}`, 20, 134);
+      
+      doc.setTextColor(100, 100, 100);
+      doc.setFontSize(10);
+      doc.text("This is an electronically generated receipt.", 20, 150);
+
+      const pdfBlob = doc.output('blob');
+
+      // Upload PDF
+      let publicReceiptUrl = "";
+      try {
+        const fd = new FormData();
+        fd.append("receipt", pdfBlob, `receipt_${bookData.bookingId}.pdf`);
+        const upRes = await fetch("/api/upload-receipt", {
+          method: "POST",
+          body: fd,
+        });
+        const upData = await upRes.json();
+        if (upRes.ok && upData.url) {
+          publicReceiptUrl = upData.url;
+        }
+      } catch (e) {
+        console.error("Failed to upload receipt", e);
+      }
+
+      let waText = `Hello ${fName},\nYour AgriTech ERP Booking is Confirmed.\nFarmer ID: ${fUid}\nItem: ${itemName}\nQuantity: ${qty}\nAdvance Paid: ₹${advanceAmount.toLocaleString("en-IN", { minimumFractionDigits: 2 })}\n`;
+      if (publicReceiptUrl) {
+         waText += `\nDownload Receipt: ${publicReceiptUrl}\n`;
+      }
+      waText += `Thank you!`;
+
       const waUrl = `https://wa.me/91${fPhone}?text=${encodeURIComponent(waText)}`;
 
       setMsg({
