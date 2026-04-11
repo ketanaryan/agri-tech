@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { createClient } from "@/lib/supabase/server";
+import { createAdminClient } from "@/lib/supabase/admin";
 import crypto from "crypto";
 
 async function generateFarmerUniqueId(supabase: any): Promise<string> {
@@ -89,11 +90,12 @@ export async function POST(req: NextRequest) {
     let finalFarmerUniqueId = "";
 
     if (farmerMode === "new") {
-      const generated_unique_id = await generateFarmerUniqueId(supabase);
+      const adminClient = createAdminClient();
+      const generated_unique_id = await generateFarmerUniqueId(adminClient);
       finalFarmerUniqueId = generated_unique_id;
       const district = profile?.district || null;
 
-      const { data: newFarmer, error: farmerError } = await supabase
+      const { data: newFarmer, error: farmerError } = await adminClient
         .from("farmers")
         .insert({
           name: newFarmerData.name,
@@ -154,7 +156,8 @@ export async function POST(req: NextRequest) {
       insertData.razorpay_payment_id = razorpay_payment_id ?? null;
     }
 
-    const { data: newBooking, error: insertError } = await supabase
+    const adminClient = createAdminClient();
+    const { data: newBooking, error: insertError } = await adminClient
       .from("bookings")
       .insert(insertData)
       .select("id")
@@ -162,7 +165,7 @@ export async function POST(req: NextRequest) {
 
     if (insertError) {
       // Fallback — insert without optional tracking columns
-      const { data: fallback, error: fallbackErr } = await supabase
+      const { data: fallback, error: fallbackErr } = await adminClient
         .from("bookings")
         .insert({
           farmer_id: finalFarmerId,
