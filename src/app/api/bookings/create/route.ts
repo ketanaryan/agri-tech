@@ -86,9 +86,11 @@ export async function POST(req: NextRequest) {
 
     // Payment is verified. Now we can safely create the farmer if it's a new farmer.
     let finalFarmerId = farmerId;
+    let finalFarmerUniqueId = "";
 
     if (farmerMode === "new") {
-      const unique_id = await generateFarmerUniqueId(supabase);
+      const generated_unique_id = await generateFarmerUniqueId(supabase);
+      finalFarmerUniqueId = generated_unique_id;
       const district = profile?.district || null;
 
       const { data: newFarmer, error: farmerError } = await supabase
@@ -98,7 +100,7 @@ export async function POST(req: NextRequest) {
           phone: newFarmerData.phone,
           address: newFarmerData.address || null,
           photo_url: newFarmerData.photo_url || null,
-          unique_id,
+          unique_id: generated_unique_id,
           district,
         })
         .select("id")
@@ -112,6 +114,12 @@ export async function POST(req: NextRequest) {
         );
       }
       finalFarmerId = newFarmer.id;
+    } else {
+      // Fetch existing farmer unique id if existing mode, though client already has it, we return it to be safe.
+      // We don't necessarily have to query it if we just say the client already knows it.
+      // I'll query it to be robust.
+      const { data: existingFarmer } = await supabase.from("farmers").select("unique_id").eq("id", farmerId).single();
+      if (existingFarmer) finalFarmerUniqueId = existingFarmer.unique_id;
     }
 
     // Fetch item rate
@@ -172,10 +180,10 @@ export async function POST(req: NextRequest) {
       if (fallbackErr) {
         return NextResponse.json({ error: fallbackErr.message }, { status: 500 });
       }
-      return NextResponse.json({ success: true, bookingId: fallback?.id });
+      return NextResponse.json({ success: true, bookingId: fallback?.id, finalFarmerUniqueId });
     }
 
-    return NextResponse.json({ success: true, bookingId: newBooking?.id });
+    return NextResponse.json({ success: true, bookingId: newBooking?.id, finalFarmerUniqueId });
   } catch (err: any) {
     console.error("[/api/bookings/create]", err);
     return NextResponse.json(
