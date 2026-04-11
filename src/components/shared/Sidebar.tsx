@@ -47,6 +47,7 @@ export function Sidebar({ role }: SidebarProps) {
       case "Leader":
         return [
           { href: "/leader", label: "Manage Team", icon: UserPlus },
+          { href: "/bookings", label: "Bookings", icon: FileText },
           { href: "/purchasing", label: "Purchasing", icon: Search },
           { href: "/farmers", label: "Farmer Directory", icon: Users },
           { href: "/reports", label: "Reports", icon: BarChart3 },
