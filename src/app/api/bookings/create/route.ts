@@ -2,6 +2,19 @@ import { NextRequest, NextResponse } from "next/server";
 import { createClient } from "@/lib/supabase/server";
 import crypto from "crypto";
 
+async function generateFarmerUniqueId(supabase: any): Promise<string> {
+  for (let i = 0; i < 5; i++) {
+    const digits = Math.floor(Math.random() * 10000).toString().padStart(4, "0");
+    const uid = `BPFRM${digits}`;
+    const { count } = await supabase
+      .from("farmers")
+      .select("*", { count: "exact", head: true })
+      .eq("unique_id", uid);
+    if (!count || count === 0) return uid;
+  }
+  return `BPFRM${Date.now().toString().slice(-5)}`;
+}
+
 export async function POST(req: NextRequest) {
   try {
     const supabase = await createClient();
@@ -16,7 +29,7 @@ export async function POST(req: NextRequest) {
 
     const { data: profile } = await supabase
       .from("profiles")
-      .select("role")
+      .select("role, district")
       .eq("id", user.id)
       .single();
 
@@ -30,7 +43,9 @@ export async function POST(req: NextRequest) {
 
     const body = await req.json();
     const {
+      farmerMode,
       farmerId,
+      newFarmerData,
       itemId,
       qty,
       paymentMethod = "online",
@@ -39,7 +54,13 @@ export async function POST(req: NextRequest) {
       razorpay_signature,
     } = body;
 
-    if (!farmerId || !itemId || !qty || qty <= 0) {
+    if (farmerMode === "existing" && !farmerId) {
+      return NextResponse.json({ error: "Existing farmer ID missing" }, { status: 400 });
+    }
+    if (farmerMode === "new" && (!newFarmerData?.name || !newFarmerData?.phone)) {
+      return NextResponse.json({ error: "New farmer data incomplete" }, { status: 400 });
+    }
+    if (!itemId || !qty || qty <= 0) {
       return NextResponse.json({ error: "Invalid booking inputs" }, { status: 400 });
     }
 
@@ -62,6 +83,36 @@ export async function POST(req: NextRequest) {
       }
     }
 
+    // Payment is verified. Now we can safely create the farmer if it's a new farmer.
+    let finalFarmerId = farmerId;
+
+    if (farmerMode === "new") {
+      const unique_id = await generateFarmerUniqueId(supabase);
+      const district = profile?.district || null;
+
+      const { data: newFarmer, error: farmerError } = await supabase
+        .from("farmers")
+        .insert({
+          name: newFarmerData.name,
+          phone: newFarmerData.phone,
+          address: newFarmerData.address || null,
+          photo_url: newFarmerData.photo_url || null,
+          unique_id,
+          district,
+        })
+        .select("id")
+        .single();
+
+      if (farmerError || !newFarmer) {
+        console.error("Failed to create farmer after payment:", farmerError);
+        return NextResponse.json(
+          { error: "Payment succeeded but failed to register farmer. Please contact support." },
+          { status: 500 }
+        );
+      }
+      finalFarmerId = newFarmer.id;
+    }
+
     // Fetch item rate
     const { data: item, error: itemError } = await supabase
       .from("items")
@@ -79,7 +130,7 @@ export async function POST(req: NextRequest) {
 
     // Insert booking — try with razorpay columns first, fallback without
     const insertData: Record<string, any> = {
-      farmer_id: farmerId,
+      farmer_id: finalFarmerId,
       item_id: itemId,
       qty,
       total_amount,
@@ -105,7 +156,7 @@ export async function POST(req: NextRequest) {
       const { data: fallback, error: fallbackErr } = await supabase
         .from("bookings")
         .insert({
-          farmer_id: farmerId,
+          farmer_id: finalFarmerId,
           item_id: itemId,
           qty,
           total_amount,

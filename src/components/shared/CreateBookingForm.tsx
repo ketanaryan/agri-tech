@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useTransition } from "react";
+import { useState, useTransition, useRef } from "react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -11,6 +11,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
+import Image from "next/image";
 
 interface Farmer {
   id: string;
@@ -51,7 +52,21 @@ function loadRazorpayScript(): Promise<boolean> {
 }
 
 export function CreateBookingForm({ farmers, items }: CreateBookingFormProps) {
+  const [farmerMode, setFarmerMode] = useState<"existing" | "new">("existing");
   const [farmerId, setFarmerId] = useState("");
+  
+  // New Farmer State
+  const [newFarmerName, setNewFarmerName] = useState("");
+  const [newFarmerPhone, setNewFarmerPhone] = useState("");
+  const [newFarmerAddress, setNewFarmerAddress] = useState("");
+  
+  // Photo Upload State
+  const [photoPreview, setPhotoPreview] = useState<string | null>(null);
+  const [photoUrl, setPhotoUrl] = useState<string>("");
+  const [uploading, setUploading] = useState(false);
+  const [uploadError, setUploadError] = useState<string | null>(null);
+  const fileInputRef = useRef<HTMLInputElement>(null);
+
   const [itemId, setItemId] = useState("");
   const [qtyStr, setQtyStr] = useState("1");
   const payMethod = "online";
@@ -67,6 +82,44 @@ export function CreateBookingForm({ farmers, items }: CreateBookingFormProps) {
   const advanceAmount = Math.round(totalAmount * 0.1 * 100) / 100;
   const balanceAmount = Math.round((totalAmount - advanceAmount) * 100) / 100;
 
+  const handleFileChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+
+    // Local preview
+    const reader = new FileReader();
+    reader.onload = (ev) => setPhotoPreview(ev.target?.result as string);
+    reader.readAsDataURL(file);
+
+    // Upload to server
+    setUploading(true);
+    setUploadError(null);
+    setPhotoUrl("");
+
+    try {
+      const fd = new FormData();
+      fd.append("photo", file);
+
+      const res = await fetch("/api/upload-farmer-photo", {
+        method: "POST",
+        body: fd,
+      });
+
+      const json = await res.json();
+      if (!res.ok) {
+        setUploadError(json.error || "Upload failed");
+        setPhotoPreview(null);
+      } else {
+        setPhotoUrl(json.url);
+      }
+    } catch {
+      setUploadError("Network error during upload");
+      setPhotoPreview(null);
+    } finally {
+      setUploading(false);
+    }
+  };
+
   const createBookingInDB = async (razorpayData?: {
     razorpay_order_id: string;
     razorpay_payment_id: string;
@@ -76,7 +129,14 @@ export function CreateBookingForm({ farmers, items }: CreateBookingFormProps) {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({
-        farmerId,
+        farmerMode,
+        farmerId: farmerMode === "existing" ? farmerId : undefined,
+        newFarmerData: farmerMode === "new" ? {
+          name: newFarmerName,
+          phone: newFarmerPhone,
+          address: newFarmerAddress,
+          photo_url: photoUrl
+        } : undefined,
         itemId,
         qty,
         paymentMethod: payMethod,
@@ -91,7 +151,13 @@ export function CreateBookingForm({ farmers, items }: CreateBookingFormProps) {
         text: `✅ Booking created! Advance of ₹${advanceAmount.toFixed(2)} paid (Online). ID: ${bookData.bookingId?.slice(0, 8)}`,
         type: "success",
       });
+      // Reset form
       setFarmerId("");
+      setNewFarmerName("");
+      setNewFarmerPhone("");
+      setNewFarmerAddress("");
+      setPhotoPreview(null);
+      setPhotoUrl("");
       setItemId("");
       setQtyStr("1");
     }
@@ -99,8 +165,22 @@ export function CreateBookingForm({ farmers, items }: CreateBookingFormProps) {
   };
 
   const handleGenerateBooking = async () => {
-    if (!farmerId || !itemId || qty <= 0) {
-      setMsg({ text: "Please fill all fields correctly.", type: "error" });
+    if (farmerMode === "existing" && !farmerId) {
+      setMsg({ text: "Please select an existing farmer.", type: "error" });
+      return;
+    }
+    if (farmerMode === "new") {
+      if (!newFarmerName || !newFarmerPhone) {
+        setMsg({ text: "Please fill in Name and Phone for the new farmer.", type: "error" });
+        return;
+      }
+      if (!/^\d{10}$/.test(newFarmerPhone)) {
+        setMsg({ text: "Phone number must be exactly 10 digits.", type: "error" });
+        return;
+      }
+    }
+    if (!itemId || qty <= 0) {
+      setMsg({ text: "Please fill item details correctly.", type: "error" });
       return;
     }
 
@@ -116,13 +196,24 @@ export function CreateBookingForm({ farmers, items }: CreateBookingFormProps) {
         return;
       }
 
+      const receiptId = farmerMode === "existing" 
+        ? `adv_${farmerId.slice(0, 8)}_${Date.now()}` 
+        : `adv_new_${Date.now()}`;
+
+      const notes = {
+        item_id: itemId,
+        qty: qty.toString(),
+        type: "advance",
+        ...(farmerMode === "existing" ? { farmer_id: farmerId } : { new_farmer: "true" })
+      };
+
       const orderRes = await fetch("/api/razorpay/create-order", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
           amount: advanceAmount,
-          receipt: `adv_${farmerId.slice(0, 8)}_${Date.now()}`,
-          notes: { farmer_id: farmerId, item_id: itemId, qty: qty.toString(), type: "advance" },
+          receipt: receiptId,
+          notes,
         }),
       });
 
@@ -133,6 +224,9 @@ export function CreateBookingForm({ farmers, items }: CreateBookingFormProps) {
         return;
       }
 
+      const prefillName = farmerMode === "existing" ? (selectedFarmer?.name ?? "") : newFarmerName;
+      const prefillContact = farmerMode === "existing" ? (selectedFarmer?.phone ?? "") : newFarmerPhone;
+
       const options = {
         key: process.env.NEXT_PUBLIC_RAZORPAY_KEY_ID ?? "",
         amount: orderData.amount,
@@ -140,7 +234,7 @@ export function CreateBookingForm({ farmers, items }: CreateBookingFormProps) {
         name: "AgriTech ERP",
         description: `Advance for ${selectedItem?.name} × ${qty}`,
         order_id: orderData.orderId,
-        prefill: { name: selectedFarmer?.name ?? "", contact: selectedFarmer?.phone ?? "" },
+        prefill: { name: prefillName, contact: prefillContact },
         theme: { color: "#16a34a" },
         handler: async function (response: any) {
           startTransition(async () => {
@@ -172,23 +266,125 @@ export function CreateBookingForm({ farmers, items }: CreateBookingFormProps) {
   };
 
   return (
-    <div className="space-y-4">
-      {/* Farmer Select */}
-      <div className="space-y-2">
-        <Label htmlFor="farmerId">Select Farmer</Label>
-        <Select value={farmerId} onValueChange={(v) => setFarmerId(v ?? "")}>
-          <SelectTrigger id="farmerId">
-            <SelectValue placeholder="Select a farmer" />
-          </SelectTrigger>
-          <SelectContent>
-            {farmers.map((f) => (
-              <SelectItem key={f.id} value={f.id}>
-                {f.name} ({f.unique_id})
-              </SelectItem>
-            ))}
-          </SelectContent>
-        </Select>
+    <div className="space-y-6">
+      {/* Farmer Mode Toggle */}
+      <div className="flex gap-2">
+        <Button
+          type="button"
+          variant={farmerMode === "existing" ? "default" : "outline"}
+          onClick={() => setFarmerMode("existing")}
+          className={farmerMode === "existing" ? "bg-green-700 hover:bg-green-800" : ""}
+        >
+          Existing Farmer
+        </Button>
+        <Button
+          type="button"
+          variant={farmerMode === "new" ? "default" : "outline"}
+          onClick={() => setFarmerMode("new")}
+          className={farmerMode === "new" ? "bg-green-700 hover:bg-green-800" : ""}
+        >
+          New Farmer
+        </Button>
       </div>
+
+      {farmerMode === "existing" ? (
+        <div className="space-y-2">
+          <Label htmlFor="farmerId">Select Farmer</Label>
+          <Select value={farmerId} onValueChange={(v) => setFarmerId(v ?? "")}>
+            <SelectTrigger id="farmerId">
+              <SelectValue placeholder="Select a farmer" />
+            </SelectTrigger>
+            <SelectContent>
+              {farmers.map((f) => (
+                <SelectItem key={f.id} value={f.id}>
+                  {f.name} ({f.unique_id})
+                </SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
+        </div>
+      ) : (
+        <div className="space-y-4 border p-4 rounded-xl relative">
+          <h3 className="text-sm font-semibold text-gray-700 absolute -top-2.5 bg-white px-2 left-3">
+            Farmer Details
+          </h3>
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+            <div className="space-y-2">
+              <Label htmlFor="newFarmerName">Farmer Name</Label>
+              <Input
+                id="newFarmerName"
+                value={newFarmerName}
+                onChange={(e) => setNewFarmerName(e.target.value)}
+                placeholder="John Doe"
+              />
+            </div>
+            <div className="space-y-2">
+              <Label htmlFor="newFarmerPhone">Phone Number</Label>
+              <Input
+                id="newFarmerPhone"
+                value={newFarmerPhone}
+                onChange={(e) => setNewFarmerPhone(e.target.value.replace(/[^0-9]/g, ""))}
+                placeholder="9876543210"
+                maxLength={10}
+                inputMode="numeric"
+              />
+            </div>
+            <div className="space-y-2 md:col-span-2">
+              <Label htmlFor="newFarmerAddress">Address / Village</Label>
+              <Input
+                id="newFarmerAddress"
+                value={newFarmerAddress}
+                onChange={(e) => setNewFarmerAddress(e.target.value)}
+                placeholder="Village Name"
+              />
+            </div>
+
+            {/* Photo Upload */}
+            <div className="space-y-2 md:col-span-2">
+              <Label>Farmer Photo (Optional)</Label>
+              <div className="flex items-center gap-4">
+                {/* Preview */}
+                {photoPreview ? (
+                  <div className="relative w-16 h-16 rounded-full overflow-hidden border border-green-600 shadow-sm flex-shrink-0">
+                    <Image
+                      src={photoPreview}
+                      alt="Preview"
+                      fill
+                      className="object-cover"
+                    />
+                  </div>
+                ) : (
+                  <div className="w-16 h-16 rounded-full bg-gray-100 border border-dashed flex-shrink-0 flex items-center justify-center">
+                    <svg className="w-6 h-6 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z"/></svg>
+                  </div>
+                )}
+                
+                <div className="flex-1">
+                  <Button
+                    type="button"
+                    variant="outline"
+                    className="w-full justify-start text-gray-600"
+                    onClick={() => fileInputRef.current?.click()}
+                    disabled={uploading}
+                  >
+                    {uploading ? "Uploading..." : photoUrl ? "Change Photo" : "Upload Photo"}
+                  </Button>
+                  <input
+                    ref={fileInputRef}
+                    type="file"
+                    accept="image/jpeg,image/jpg,image/png,image/webp"
+                    className="hidden"
+                    onChange={handleFileChange}
+                  />
+                  {uploadError && (
+                    <p className="text-xs text-red-600 mt-1">{uploadError}</p>
+                  )}
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
 
       {/* Item Select */}
       <div className="space-y-2">
@@ -207,7 +403,7 @@ export function CreateBookingForm({ farmers, items }: CreateBookingFormProps) {
         </Select>
       </div>
 
-      {/* Quantity — plain text input, no browser spinner */}
+      {/* Quantity */}
       <div className="space-y-2">
         <Label htmlFor="qty">Quantity</Label>
         <Input
@@ -257,7 +453,7 @@ export function CreateBookingForm({ farmers, items }: CreateBookingFormProps) {
       {/* Status Message */}
       {msg && (
         <div
-          className={`p-3 rounded-md text-sm font-medium ${
+          className={`p-3 rounded-md text-sm font-medium transition-all ${
             msg.type === "success"
               ? "bg-green-50 text-green-800 border border-green-200"
               : "bg-red-50 text-red-800 border border-red-200"
@@ -270,10 +466,18 @@ export function CreateBookingForm({ farmers, items }: CreateBookingFormProps) {
       <Button
         type="button"
         onClick={handleGenerateBooking}
-        disabled={paying || isPending || !farmerId || !itemId || qty <= 0}
+        disabled={
+          paying ||
+          isPending ||
+          !itemId ||
+          qty <= 0 ||
+          (uploading) ||
+          (farmerMode === "existing" && !farmerId) ||
+          (farmerMode === "new" && (!newFarmerName || !newFarmerPhone))
+        }
         className="w-full bg-green-600 hover:bg-green-700"
       >
-        {paying || isPending
+        {paying || isPending || uploading
           ? "Processing..."
           : selectedItem && qty > 0
           ? `Pay ₹${advanceAmount.toFixed(2)} & Generate Booking`

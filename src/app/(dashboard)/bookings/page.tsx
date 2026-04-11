@@ -1,7 +1,7 @@
 import { createClient } from "@/lib/supabase/server";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { redirect } from "next/navigation";
-import { RegisterFarmerForm } from "@/components/shared/RegisterFarmerForm";
+
 import { CreateBookingForm } from "@/components/shared/CreateBookingForm";
 import Image from "next/image";
 
@@ -50,18 +50,8 @@ export default async function BookingsPage() {
     <div className="space-y-6">
       <h1 className="text-2xl font-bold">Bookings &amp; Farmers</h1>
 
-      <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-        {/* Register Farmer Form — client component with photo upload */}
-        <Card>
-          <CardHeader>
-            <CardTitle>Register New Farmer</CardTitle>
-          </CardHeader>
-          <CardContent>
-            <RegisterFarmerForm />
-          </CardContent>
-        </Card>
-
-        {/* Create Booking Form — Razorpay-integrated client component */}
+      <div className="max-w-xl">
+        {/* Create Booking & Farmer Form — Razorpay-integrated client component */}
         <Card>
           <CardHeader>
             <CardTitle>Create Booking</CardTitle>
