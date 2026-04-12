@@ -2,8 +2,7 @@
 
 import { useState } from "react";
 import { Button } from "@/components/ui/button";
-import jsPDF from "jspdf";
-import "jspdf-autotable";
+
 
 interface BookingInfo {
   id: string;
@@ -44,7 +43,9 @@ function loadRazorpayScript(): Promise<boolean> {
   });
 }
 
-function generatePDFBlob(booking: BookingInfo, payMethod: string): Blob {
+async function generatePDFBlob(booking: BookingInfo, payMethod: string): Promise<Blob> {
+  const { jsPDF } = await import("jspdf");
+  await import("jspdf-autotable");
   const doc = new jsPDF();
 
   doc.setFontSize(20);
@@ -114,11 +115,8 @@ export function PDFButton({ booking }: { booking: BookingInfo }) {
   const [localPdfUrl, setLocalPdfUrl] = useState<string>("");
 
   const handleSuccess = async (method: string) => {
-    setPaidMethod(method);
-    setDone(true);
-    
     // Generate PDF Blob
-    const blob = generatePDFBlob(booking, method);
+    const blob = await generatePDFBlob(booking, method);
     const localUrl = URL.createObjectURL(blob);
     setLocalPdfUrl(localUrl);
 
@@ -137,12 +135,20 @@ export function PDFButton({ booking }: { booking: BookingInfo }) {
     }
 
     // Generate WhatsApp Text
-    let text = `Hello ${booking.farmer.name},\nYour AgriTech ERP Delivery is Complete.\nFarmer ID: ${booking.farmer.unique_id}\nItem: ${booking.item.name}\nQuantity: ${booking.qty}\nTotal Cost: ₹${booking.total_amount}\nBalance Paid: ₹${booking.balance_amount}\n`;
+    let text = `Hello ${booking.farmer?.name || "Farmer"},\nYour AgriTech ERP Delivery is Complete.\nFarmer ID: ${booking.farmer?.unique_id || "N/A"}\nItem: ${booking.item?.name || "N/A"}\nQuantity: ${booking.qty}\nTotal Cost: ₹${booking.total_amount?.toLocaleString("en-IN")}\nBalance Paid: ₹${booking.balance_amount?.toLocaleString("en-IN")}\n`;
     if (remoteUrl) {
       text += `\nDownload Final Slip: ${remoteUrl}\n`;
     }
     text += `Thank you!`;
-    setWaUrl(`https://wa.me/91${booking.farmer.phone}?text=${encodeURIComponent(text)}`);
+    
+    // Format phone number
+    const phoneDigits = booking.farmer?.phone?.replace(/\D/g, "") || "";
+    const waPhone = phoneDigits.length === 10 ? `91${phoneDigits}` : phoneDigits;
+
+    setWaUrl(`https://wa.me/${waPhone}?text=${encodeURIComponent(text)}`);
+
+    setPaidMethod(method);
+    setDone(true);
   };
 
   const handleCash = async () => {
