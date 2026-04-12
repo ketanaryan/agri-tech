@@ -45,7 +45,8 @@ function loadRazorpayScript(): Promise<boolean> {
 
 async function generatePDFBlob(booking: BookingInfo, payMethod: string): Promise<Blob> {
   const { jsPDF } = await import("jspdf");
-  await import("jspdf-autotable");
+  const autoTableModule = await import("jspdf-autotable");
+  const autoTable = autoTableModule.default || autoTableModule;
   const doc = new jsPDF();
 
   doc.setFontSize(20);
@@ -65,7 +66,7 @@ async function generatePDFBlob(booking: BookingInfo, payMethod: string): Promise
   doc.text(`Phone: ${booking.farmer.phone}`, 14, 65);
   doc.text(`Address: ${booking.farmer.address || "N/A"}`, 14, 71);
 
-  (doc as any).autoTable({
+  autoTable(doc, {
     startY: 78,
     head: [["Item", "Rate (₹)", "Qty", "Total (₹)", "Advance (₹)", "Balance Paid (₹)"]],
     body: [
@@ -162,8 +163,9 @@ export function PDFButton({ booking }: { booking: BookingInfo }) {
         const d = await res.json();
         setError(d.error ?? "Could not complete booking.");
       }
-    } catch {
-      setError("Failed to complete booking.");
+    } catch (err: any) {
+      console.error(err);
+      setError(`Failed to complete booking: ${err?.message || "Unknown error"}`);
     } finally {
       setLoading(null);
     }
@@ -219,8 +221,9 @@ export function PDFButton({ booking }: { booking: BookingInfo }) {
               const d = await res.json();
               setError(d.error ?? "Could not complete booking after payment.");
             }
-          } catch {
-            setError("Failed to complete booking after payment.");
+          } catch (err: any) {
+            console.error(err);
+            setError(`Failed to complete booking after payment: ${err?.message || "Unknown error"}`);
           } finally {
             setLoading(null);
           }
