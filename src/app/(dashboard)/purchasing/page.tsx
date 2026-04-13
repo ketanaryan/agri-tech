@@ -16,6 +16,8 @@ import { PDFButton } from "./PDFButton";
 interface Booking {
   id: string;
   qty: number;
+  replacement_qty: number;
+  rate_snapshot: number;
   total_amount: number;
   booking_amount: number;
   balance_amount: number;
@@ -154,13 +156,27 @@ export default function PurchasingPage() {
                         {b.item?.name}
                       </div>
 
-                      <div className="text-gray-500">Rate:</div>
+                      <div className="text-gray-500">Rate (at booking):</div>
                       <div className="font-medium text-right text-gray-700 font-mono">
-                        &#8377;{b.item?.rate_per_unit}
+                        &#8377;{b.rate_snapshot ?? b.item?.rate_per_unit}
+                        {b.rate_snapshot && b.rate_snapshot !== b.item?.rate_per_unit && (
+                          <span className="ml-1 text-xs text-amber-600" title="Rate has changed since booking">
+                            ⚠️ current: ₹{b.item?.rate_per_unit}
+                          </span>
+                        )}
                       </div>
 
-                      <div className="text-gray-500">Qty:</div>
+                      <div className="text-gray-500">Ordered Qty:</div>
                       <div className="font-medium text-right">{b.qty}</div>
+
+                      {(b.replacement_qty ?? 0) > 0 && (
+                        <>
+                          <div className="text-emerald-600 text-xs">🌱 Replacement (free):</div>
+                          <div className="text-right text-emerald-600 text-xs font-medium">+{b.replacement_qty}</div>
+                          <div className="text-gray-500 text-xs">Total Delivered:</div>
+                          <div className="text-right text-xs font-semibold">{b.qty + (b.replacement_qty ?? 0)}</div>
+                        </>
+                      )}
                     </div>
 
                     <div className="border-t pt-3 grid grid-cols-2 gap-y-2 text-sm">

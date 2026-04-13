@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useState } from "react";
+import React, { useState, useEffect } from "react";
 import { useRouter } from "next/navigation";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -15,33 +15,66 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { submitPlantReport } from "@/actions/plant-report";
-import { Camera, Loader2, X } from "lucide-react";
+import { Camera, Loader2, X, AlertTriangle } from "lucide-react";
+
+interface Pesticide {
+  id: string;
+  name: string;
+  unit: string;
+  current_stock: number;
+  low_stock_threshold: number;
+}
 
 export function PlantReportForm() {
   const router = useRouter();
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  
+  const [successMsg, setSuccessMsg] = useState<string | null>(null);
+  const [lowStockAlert, setLowStockAlert] = useState<{ name: string; remaining: number; unit: string } | null>(null);
+
   // Form State
   const [farmerId, setFarmerId] = useState("");
   const [plantsDelivered, setPlantsDelivered] = useState("");
   const [status, setStatus] = useState("Delivered");
   const [pesticideGiven, setPesticideGiven] = useState("no");
   const [remarks, setRemarks] = useState("");
-  
+
+  // Pesticide tracking fields
+  const [pesticides, setPesticides] = useState<Pesticide[]>([]);
+  const [pesticideId, setPesticideId] = useState("");
+  const [pesticideQty, setPesticideQty] = useState("");
+  const [loadingPesticides, setLoadingPesticides] = useState(false);
+
   // Files
   const [files, setFiles] = useState<File[]>([]);
   const [previewUrls, setPreviewUrls] = useState<string[]>([]);
   const [uploadingFiles, setUploadingFiles] = useState(false);
 
+  // Fetch pesticides on mount
+  useEffect(() => {
+    const fetchPesticides = async () => {
+      setLoadingPesticides(true);
+      try {
+        const res = await fetch("/api/pesticides");
+        const data = await res.json();
+        if (res.ok) setPesticides(data.pesticides ?? []);
+      } catch {
+        // silently fail — pesticide section will just be empty
+      } finally {
+        setLoadingPesticides(false);
+      }
+    };
+    fetchPesticides();
+  }, []);
+
+  const selectedPesticide = pesticides.find((p) => p.id === pesticideId);
+
   const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     if (e.target.files) {
       const selectedFiles = Array.from(e.target.files);
-      const newFiles = [...files, ...selectedFiles].slice(0, 3); // max 3 files
+      const newFiles = [...files, ...selectedFiles].slice(0, 3);
       setFiles(newFiles);
-      
-      // Create previews
-      const newPreviews = newFiles.map(f => URL.createObjectURL(f));
+      const newPreviews = newFiles.map((f) => URL.createObjectURL(f));
       setPreviewUrls(newPreviews);
     }
   };
@@ -50,7 +83,6 @@ export function PlantReportForm() {
     const newFiles = [...files];
     newFiles.splice(index, 1);
     setFiles(newFiles);
-    
     const newPreviews = [...previewUrls];
     newPreviews.splice(index, 1);
     setPreviewUrls(newPreviews);
@@ -60,30 +92,27 @@ export function PlantReportForm() {
     e.preventDefault();
     setLoading(true);
     setError(null);
+    setSuccessMsg(null);
+    setLowStockAlert(null);
     setUploadingFiles(true);
 
     try {
       // 1. Upload photos first
       let uploadedPhotoUrls: string[] = [];
-      
       for (const file of files) {
         const formData = new FormData();
         formData.append("photo", file);
-        
         const res = await fetch("/api/upload-plant-photo", {
           method: "POST",
           body: formData,
         });
-        
         if (!res.ok) {
           const err = await res.json();
           throw new Error(err.error || "Failed to upload photo");
         }
-        
         const data = await res.json();
         uploadedPhotoUrls.push(data.url);
       }
-      
       setUploadingFiles(false);
 
       // 2. Submit form data
@@ -95,14 +124,36 @@ export function PlantReportForm() {
       formData.append("remarks", remarks);
       formData.append("photos", JSON.stringify(uploadedPhotoUrls));
 
+      // Pesticide tracking
+      if (pesticideGiven === "yes" && pesticideId) {
+        formData.append("pesticide_id", pesticideId);
+        formData.append("pesticide_quantity", pesticideQty);
+      }
+
       const result = await submitPlantReport(formData);
 
       if (!result.success) {
         throw new Error(result.error);
       }
 
-      // Success
-      router.push("/reports"); // Or wherever you want to redirect
+      // Show low stock alert if returned
+      if (result.lowStockAlert) {
+        setLowStockAlert(result.lowStockAlert);
+      }
+
+      setSuccessMsg("✅ Plant report submitted successfully!");
+
+      // Reset form
+      setFarmerId("");
+      setPlantsDelivered("");
+      setStatus("Delivered");
+      setPesticideGiven("no");
+      setPesticideId("");
+      setPesticideQty("");
+      setRemarks("");
+      setFiles([]);
+      setPreviewUrls([]);
+
     } catch (err: any) {
       console.error(err);
       setError(err.message || "An error occurred");
@@ -115,24 +166,47 @@ export function PlantReportForm() {
   return (
     <form onSubmit={handleSubmit} className="space-y-6">
       {error && (
-        <div className="p-3 text-sm text-red-600 bg-red-50 rounded-md">
+        <div className="p-3 text-sm text-red-600 bg-red-50 rounded-md border border-red-200">
           {error}
         </div>
       )}
 
-      {/* Row 1 */}
+      {successMsg && (
+        <div className="p-3 text-sm text-green-700 bg-green-50 rounded-md border border-green-200">
+          {successMsg}
+        </div>
+      )}
+
+      {/* Low Stock Alert Banner */}
+      {lowStockAlert && (
+        <div className="flex items-start gap-3 p-4 bg-amber-50 border border-amber-300 rounded-lg text-amber-800">
+          <AlertTriangle className="w-5 h-5 mt-0.5 shrink-0 text-amber-600" />
+          <div>
+            <p className="font-semibold text-sm">⚠️ Low Pesticide Stock Alert</p>
+            <p className="text-sm mt-0.5">
+              <strong>{lowStockAlert.name}</strong> is now low:{" "}
+              <span className="font-bold text-amber-700">
+                {lowStockAlert.remaining} {lowStockAlert.unit}
+              </span>{" "}
+              remaining. Please inform Admin to restock.
+            </p>
+          </div>
+        </div>
+      )}
+
+      {/* Farmer ID */}
       <div className="space-y-2">
         <Label htmlFor="farmerId">Farmer ID</Label>
         <Input
           id="farmerId"
-          placeholder="Enter Farmer ID (e.g., FM1234)"
+          placeholder="Enter Farmer ID (e.g., BPFRM1234)"
           value={farmerId}
           onChange={(e) => setFarmerId(e.target.value)}
           required
         />
       </div>
 
-      {/* Row 2 */}
+      {/* Plants Delivered + Status */}
       <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
         <div className="space-y-2">
           <Label htmlFor="plantsDelivered">Number of Plants Delivered (Ordered)</Label>
@@ -178,13 +252,19 @@ export function PlantReportForm() {
         </div>
       </div>
 
-      {/* Row 3 - Radio */}
-      <div className="space-y-2">
+      {/* Pesticide Given */}
+      <div className="space-y-3">
         <Label>Pesticide Given</Label>
-        <RadioGroup 
-          defaultValue="no" 
-          value={pesticideGiven} 
-          onValueChange={setPesticideGiven}
+        <RadioGroup
+          defaultValue="no"
+          value={pesticideGiven}
+          onValueChange={(v) => {
+            setPesticideGiven(v);
+            if (v === "no") {
+              setPesticideId("");
+              setPesticideQty("");
+            }
+          }}
           className="flex items-center space-x-4"
         >
           <div className="flex items-center space-x-2">
@@ -196,9 +276,67 @@ export function PlantReportForm() {
             <Label htmlFor="pes-no" className="font-normal">No</Label>
           </div>
         </RadioGroup>
+
+        {/* Pesticide Details — show only if yes */}
+        {pesticideGiven === "yes" && (
+          <div className="border border-emerald-200 bg-emerald-50 rounded-lg p-4 space-y-3">
+            <p className="text-xs font-semibold text-emerald-700 uppercase tracking-wide">🧪 Pesticide Usage Details</p>
+
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+              <div className="space-y-2">
+                <Label htmlFor="pesticideId">Select Pesticide</Label>
+                {loadingPesticides ? (
+                  <p className="text-xs text-gray-500">Loading pesticides...</p>
+                ) : pesticides.length === 0 ? (
+                  <p className="text-xs text-amber-600">⚠️ No pesticides in inventory. Ask Admin to add.</p>
+                ) : (
+                  <Select value={pesticideId} onValueChange={(v) => setPesticideId(v ?? "")}>
+                    <SelectTrigger id="pesticideId">
+                      <SelectValue placeholder="Select pesticide" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {pesticides.map((p) => (
+                        <SelectItem key={p.id} value={p.id}>
+                          {p.name} ({p.current_stock} {p.unit} left)
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                )}
+              </div>
+
+              <div className="space-y-2">
+                <Label htmlFor="pesticideQty">
+                  Quantity Used {selectedPesticide ? `(${selectedPesticide.unit})` : ""}
+                </Label>
+                <Input
+                  id="pesticideQty"
+                  type="number"
+                  step="0.01"
+                  min="0.01"
+                  placeholder="e.g. 2.5"
+                  value={pesticideQty}
+                  onChange={(e) => setPesticideQty(e.target.value)}
+                  required={pesticideGiven === "yes" && !!pesticideId}
+                />
+              </div>
+            </div>
+
+            {/* Current stock info */}
+            {selectedPesticide && (
+              <div className="flex items-center gap-2 text-xs">
+                <span className={selectedPesticide.current_stock <= selectedPesticide.low_stock_threshold
+                  ? "text-red-600 font-semibold" : "text-gray-500"}>
+                  📦 Current stock: <strong>{selectedPesticide.current_stock} {selectedPesticide.unit}</strong>
+                  {selectedPesticide.current_stock <= selectedPesticide.low_stock_threshold && " ⚠️ LOW"}
+                </span>
+              </div>
+            )}
+          </div>
+        )}
       </div>
 
-      {/* Row 4 - Remarks */}
+      {/* Remarks */}
       <div className="space-y-2">
         <Label htmlFor="remarks">Remarks</Label>
         <Textarea
@@ -210,10 +348,9 @@ export function PlantReportForm() {
         />
       </div>
 
-      {/* Row 5 - Photos */}
+      {/* Photos */}
       <div className="space-y-2">
         <Label>Upload Photos (2-3 photos)</Label>
-        
         {files.length < 3 && (
           <div className="mt-2 flex justify-center rounded-lg border border-dashed border-gray-900/25 px-6 py-10 hover:bg-gray-50 transition-colors">
             <div className="text-center">
@@ -233,16 +370,11 @@ export function PlantReportForm() {
           </div>
         )}
 
-        {/* Previews */}
         {previewUrls.length > 0 && (
           <div className="grid grid-cols-3 gap-4 mt-4">
             {previewUrls.map((url, index) => (
               <div key={index} className="relative group">
-                <img 
-                  src={url} 
-                  alt={`Preview ${index}`} 
-                  className="h-24 w-full object-cover rounded-md border" 
-                />
+                <img src={url} alt={`Preview ${index}`} className="h-24 w-full object-cover rounded-md border" />
                 <button
                   type="button"
                   onClick={() => removeFile(index)}
@@ -256,7 +388,7 @@ export function PlantReportForm() {
         )}
       </div>
 
-      {/* Submit Button */}
+      {/* Submit */}
       <Button type="submit" className="w-full bg-green-600 hover:bg-green-700" disabled={loading}>
         {loading ? (
           <>

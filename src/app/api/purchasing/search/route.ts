@@ -53,6 +53,8 @@ export async function GET(req: NextRequest) {
       .select(`
         id,
         qty,
+        replacement_qty,
+        rate_snapshot,
         total_amount,
         booking_amount,
         balance_amount,

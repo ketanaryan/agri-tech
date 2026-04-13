@@ -7,6 +7,8 @@ import { Button } from "@/components/ui/button";
 interface BookingInfo {
   id: string;
   qty: number;
+  replacement_qty?: number;
+  rate_snapshot?: number;
   total_amount: number;
   booking_amount: number;
   balance_amount: number;
@@ -68,26 +70,34 @@ async function generatePDFBlob(booking: BookingInfo, payMethod: string): Promise
 
   autoTable(doc, {
     startY: 78,
-    head: [["Item", "Rate (₹)", "Qty", "Total (₹)", "Advance (₹)", "Balance Paid (₹)"]],
+    head: [["Item", "Rate (\u20b9)", "Ordered", "Replacement", "Total Delivered", "Total (\u20b9)", "Advance (\u20b9)", "Balance (\u20b9)"]],
     body: [
       [
         booking.item.name,
-        booking.item.rate_per_unit,
+        booking.rate_snapshot ?? booking.item.rate_per_unit,
         booking.qty,
+        booking.replacement_qty ?? 0,
+        booking.qty + (booking.replacement_qty ?? 0),
         booking.total_amount,
         booking.booking_amount,
         booking.balance_amount,
       ],
     ],
     theme: "grid",
-    styles: { fontSize: 9 },
+    styles: { fontSize: 7.5 },
     headStyles: { fillColor: [22, 163, 74] },
   });
 
   const finalY = (doc as any).lastAutoTable.finalY || 95;
+  doc.setFontSize(9);
+  doc.setTextColor(120, 120, 120);
+  doc.text(
+    `Rate locked at booking time: \u20b9${booking.rate_snapshot ?? booking.item.rate_per_unit}/unit`,
+    14, finalY + 8
+  );
   doc.setFontSize(13);
   doc.setTextColor(0, 128, 0);
-  doc.text("✓ DELIVERED — PAYMENT COMPLETED", 14, finalY + 14);
+  doc.text("\u2713 DELIVERED \u2014 PAYMENT COMPLETED", 14, finalY + 18);
 
   return doc.output('blob');
 }

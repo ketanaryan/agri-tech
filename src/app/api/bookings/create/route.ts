@@ -164,6 +164,7 @@ export async function POST(req: NextRequest) {
       item_id: itemId,
       qty,
       replacement_qty,
+      rate_snapshot: item.rate_per_unit,  // 🔒 frozen rate at booking time
       total_amount,
       booking_amount,
       balance_amount,
@@ -192,6 +193,7 @@ export async function POST(req: NextRequest) {
           item_id: itemId,
           qty,
           replacement_qty,
+          rate_snapshot: item.rate_per_unit,
           total_amount,
           booking_amount,
           balance_amount,
