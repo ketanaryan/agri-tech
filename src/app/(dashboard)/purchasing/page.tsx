@@ -158,8 +158,8 @@ export default function PurchasingPage() {
 
                       <div className="text-gray-500">Rate (at booking):</div>
                       <div className="font-medium text-right text-gray-700 font-mono">
-                        &#8377;{b.rate_snapshot ?? b.item?.rate_per_unit}
-                        {b.rate_snapshot && b.rate_snapshot !== b.item?.rate_per_unit && (
+                        &#8377;{b.rate_snapshot || (b.qty ? (b.total_amount / b.qty) : b.item?.rate_per_unit)}
+                        {b.rate_snapshot > 0 && b.rate_snapshot !== b.item?.rate_per_unit && (
                           <span className="ml-1 text-xs text-amber-600" title="Rate has changed since booking">
                             ⚠️ current: ₹{b.item?.rate_per_unit}
                           </span>

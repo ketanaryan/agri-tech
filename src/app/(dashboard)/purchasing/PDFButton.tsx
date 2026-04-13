@@ -74,7 +74,7 @@ async function generatePDFBlob(booking: BookingInfo, payMethod: string): Promise
     body: [
       [
         booking.item.name,
-        booking.rate_snapshot ?? booking.item.rate_per_unit,
+        booking.rate_snapshot || (booking.qty ? (booking.total_amount / booking.qty) : booking.item.rate_per_unit),
         booking.qty,
         booking.replacement_qty ?? 0,
         booking.qty + (booking.replacement_qty ?? 0),
@@ -92,7 +92,7 @@ async function generatePDFBlob(booking: BookingInfo, payMethod: string): Promise
   doc.setFontSize(9);
   doc.setTextColor(120, 120, 120);
   doc.text(
-    `Rate locked at booking time: \u20b9${booking.rate_snapshot ?? booking.item.rate_per_unit}/unit`,
+    `Rate locked at booking time: \u20b9${booking.rate_snapshot || (booking.qty ? (booking.total_amount / booking.qty) : booking.item.rate_per_unit)}/unit`,
     14, finalY + 8
   );
   doc.setFontSize(13);

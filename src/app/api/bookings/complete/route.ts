@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { createClient } from "@/lib/supabase/server";
 import crypto from "crypto";
 import Razorpay from "razorpay";
+import { revalidatePath } from "next/cache";
 
 export async function POST(req: NextRequest) {
   try {
@@ -84,9 +85,9 @@ export async function POST(req: NextRequest) {
     }
     // For cash: no signature needed — leader confirms receipt of cash
 
-    // Mark booking as Delivered
+    // Mark booking as Completed
     const updateData: Record<string, any> = {
-      status: "Delivered",
+      status: "Completed",
       balance_payment_method: paymentMethod,
       delivered_at: new Date().toISOString(),
       delivered_by: user.id,
@@ -105,7 +106,7 @@ export async function POST(req: NextRequest) {
       // Fallback: update with just status
       const { error: fallbackErr } = await supabase
         .from("bookings")
-        .update({ status: "Delivered" })
+        .update({ status: "Completed" })
         .eq("id", bookingId)
         .eq("status", "Pending");
 
@@ -114,6 +115,7 @@ export async function POST(req: NextRequest) {
       }
     }
 
+    revalidatePath("/", "layout");
     return NextResponse.json({ success: true });
   } catch (err: any) {
     console.error("[/api/bookings/complete]", err);
