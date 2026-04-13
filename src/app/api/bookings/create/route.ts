@@ -140,6 +140,9 @@ export async function POST(req: NextRequest) {
     const booking_amount = Math.round(total_amount * 0.1 * 100) / 100;
     const balance_amount = Math.round((total_amount - booking_amount) * 100) / 100;
 
+    // Replacement plants: 10% of ordered qty, free of charge
+    const replacement_qty = Math.floor(qty * 0.1);
+
     if (paymentMethod === "online") {
       const razorpay = new Razorpay({
         key_id: process.env.NEXT_PUBLIC_RAZORPAY_KEY_ID!,
@@ -160,6 +163,7 @@ export async function POST(req: NextRequest) {
       farmer_id: finalFarmerId,
       item_id: itemId,
       qty,
+      replacement_qty,
       total_amount,
       booking_amount,
       balance_amount,
@@ -187,6 +191,7 @@ export async function POST(req: NextRequest) {
           farmer_id: finalFarmerId,
           item_id: itemId,
           qty,
+          replacement_qty,
           total_amount,
           booking_amount,
           balance_amount,

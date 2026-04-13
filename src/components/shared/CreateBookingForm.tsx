@@ -82,6 +82,10 @@ export function CreateBookingForm({ farmers, items }: CreateBookingFormProps) {
   const advanceAmount = Math.round(totalAmount * 0.1 * 100) / 100;
   const balanceAmount = Math.round((totalAmount - advanceAmount) * 100) / 100;
 
+  // Replacement plants: 10% free buffer — no charge
+  const replacementQty = qty > 0 ? Math.floor(qty * 0.1) : 0;
+  const totalDelivered = qty + replacementQty;
+
   const handleFileChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (!file) return;
@@ -176,19 +180,27 @@ export function CreateBookingForm({ farmers, items }: CreateBookingFormProps) {
       doc.text("Order Summary:", 20, 90);
       doc.setFontSize(12);
       doc.text(`Item: ${itemName}`, 20, 98);
-      doc.text(`Quantity: ${qty}`, 20, 106);
+      doc.text(`Ordered Quantity: ${qty} plants`, 20, 106);
       doc.text(`Total Amount: Rs. ${totalAmount.toFixed(2)}`, 20, 114);
-      
+
+      // Replacement plants info
+      const localReplacementQty = Math.floor(qty * 0.1);
+      const localTotalDelivered = qty + localReplacementQty;
+      doc.setFontSize(11);
+      doc.setTextColor(21, 128, 61); // green-700
+      doc.text(`Free Replacement Plants (10%): ${localReplacementQty} plants (No charge)`, 20, 122);
+      doc.text(`Total Plants to be Delivered: ${localTotalDelivered} plants`, 20, 130);
+
       doc.setFontSize(12);
       doc.setTextColor(22, 163, 74);
-      doc.text(`Advance Paid (10%): Rs. ${advanceAmount.toFixed(2)}`, 20, 126);
+      doc.text(`Advance Paid (10%): Rs. ${advanceAmount.toFixed(2)}`, 20, 142);
       
       doc.setTextColor(220, 38, 38);
-      doc.text(`Balance Due at Delivery: Rs. ${balanceAmount.toFixed(2)}`, 20, 134);
+      doc.text(`Balance Due at Delivery: Rs. ${balanceAmount.toFixed(2)}`, 20, 150);
       
       doc.setTextColor(100, 100, 100);
       doc.setFontSize(10);
-      doc.text("This is an electronically generated receipt.", 20, 150);
+      doc.text("This is an electronically generated receipt.", 20, 162);
 
       const pdfBlob = doc.output('blob');
       const localPdfUrl = URL.createObjectURL(pdfBlob);
@@ -210,11 +222,13 @@ export function CreateBookingForm({ farmers, items }: CreateBookingFormProps) {
         console.error("Failed to upload receipt", e);
       }
 
-      let waText = `Hello ${fName},\nYour AgriTech ERP Booking is Confirmed.\nFarmer ID: ${fUid}\nItem: ${itemName}\nQuantity: ${qty}\nAdvance Paid: ₹${advanceAmount.toLocaleString("en-IN", { minimumFractionDigits: 2 })}\n`;
+      const waReplacementQty = Math.floor(qty * 0.1);
+      const waTotalDelivered = qty + waReplacementQty;
+      let waText = `Hello ${fName},\nYour AgriTech ERP Booking is Confirmed! 🌱\n\nFarmer ID: ${fUid}\nItem: ${itemName}\n\n📦 Ordered: ${qty} plants\n🎁 Free Replacement (10%): ${waReplacementQty} plants\n✅ Total Delivery: ${waTotalDelivered} plants\n\n💰 Advance Paid: ₹${advanceAmount.toLocaleString("en-IN", { minimumFractionDigits: 2 })}\n💵 Balance Due at Delivery: ₹${balanceAmount.toLocaleString("en-IN", { minimumFractionDigits: 2 })}\n`;
       if (publicReceiptUrl) {
-         waText += `\nDownload Receipt: ${publicReceiptUrl}\n`;
+         waText += `\n📄 Download Receipt: ${publicReceiptUrl}\n`;
       }
-      waText += `Thank you!`;
+      waText += `\nThank you for choosing us! 🙏`;
 
       const waUrl = `https://wa.me/91${fPhone}?text=${encodeURIComponent(waText)}`;
 
@@ -505,16 +519,38 @@ export function CreateBookingForm({ farmers, items }: CreateBookingFormProps) {
 
       {/* Price Preview */}
       {selectedItem && qty > 0 && (
-        <div className="p-4 bg-green-50 border border-green-200 rounded-lg space-y-1 text-sm">
+        <div className="p-4 bg-green-50 border border-green-200 rounded-lg space-y-2 text-sm">
+          {/* Billing breakdown */}
+          <div className="flex justify-between">
+            <span className="text-gray-600">Ordered Quantity:</span>
+            <span className="font-semibold">{qty} plants</span>
+          </div>
           <div className="flex justify-between">
             <span className="text-gray-600">Total Amount:</span>
             <span className="font-semibold">₹{totalAmount.toLocaleString("en-IN")}</span>
           </div>
-          <div className="flex justify-between text-green-700 font-medium">
+
+          {/* Replacement plants highlight */}
+          {replacementQty > 0 && (
+            <div className="flex items-start justify-between bg-emerald-50 border border-emerald-200 rounded-md px-3 py-2 mt-1">
+              <div>
+                <p className="text-emerald-700 font-semibold text-xs uppercase tracking-wide">🌱 Free Replacement Plants</p>
+                <p className="text-emerald-600 text-xs mt-0.5">10% buffer — no extra charge</p>
+              </div>
+              <span className="text-emerald-700 font-bold text-base">+{replacementQty}</span>
+            </div>
+          )}
+
+          <div className="flex justify-between font-semibold border-t pt-2 mt-1">
+            <span className="text-gray-700">📦 Total Plants to be Delivered:</span>
+            <span className="text-green-700">{totalDelivered}</span>
+          </div>
+
+          <div className="flex justify-between text-green-700 font-medium border-t pt-2">
             <span>Advance Now (10%):</span>
             <span>₹{advanceAmount.toLocaleString("en-IN", { minimumFractionDigits: 2 })}</span>
           </div>
-          <div className="flex justify-between text-gray-400 text-xs border-t pt-1 mt-1">
+          <div className="flex justify-between text-gray-400 text-xs">
             <span>Balance at Delivery:</span>
             <span>₹{balanceAmount.toLocaleString("en-IN", { minimumFractionDigits: 2 })}</span>
           </div>

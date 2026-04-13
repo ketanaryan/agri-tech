@@ -40,7 +40,7 @@ export default async function ReportsPage() {
   let query = supabase
     .from("bookings")
     .select(
-      `id, qty, total_amount, booking_amount, balance_amount, status, created_at, farmer_id,
+      `id, qty, replacement_qty, total_amount, booking_amount, balance_amount, status, created_at, farmer_id,
        farmers ( name, unique_id ),
        items ( name )`
     )
@@ -187,7 +187,7 @@ export default async function ReportsPage() {
                   <TableHead>Date</TableHead>
                   <TableHead>Farmer</TableHead>
                   <TableHead>Item</TableHead>
-                  <TableHead>Qty</TableHead>
+                  <TableHead>Qty / Delivery</TableHead>
                   {showRevenue && <TableHead>Total</TableHead>}
                   <TableHead>Status</TableHead>
                 </TableRow>
@@ -206,7 +206,26 @@ export default async function ReportsPage() {
                     </TableCell>
                     {/* @ts-ignore */}
                     <TableCell>{b.items?.name}</TableCell>
-                    <TableCell>{b.qty}</TableCell>
+                    <TableCell>
+                      <div className="flex flex-col gap-0.5">
+                        <span className="font-medium">{b.qty} ordered</span>
+                        {/* @ts-ignore */}
+                        {(b.replacement_qty ?? 0) > 0 && (
+                          <span className="inline-flex items-center gap-1 text-xs text-emerald-600 font-medium">
+                            <span>🌱</span>
+                            {/* @ts-ignore */}
+                            +{b.replacement_qty} replacement
+                          </span>
+                        )}
+                        {/* @ts-ignore */}
+                        {(b.replacement_qty ?? 0) > 0 && (
+                          <span className="text-xs text-gray-400">
+                            {/* @ts-ignore */}
+                            = {b.qty + (b.replacement_qty ?? 0)} total
+                          </span>
+                        )}
+                      </div>
+                    </TableCell>
                     {showRevenue && (
                       <TableCell className="whitespace-nowrap font-mono">
                         ₹ {Number(b.total_amount).toLocaleString("en-IN")}
