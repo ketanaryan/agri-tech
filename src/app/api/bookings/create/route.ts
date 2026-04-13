@@ -52,6 +52,7 @@ export async function POST(req: NextRequest) {
       itemId,
       qty,
       paymentMethod = "online",
+      paymentType = "advance",
       razorpay_order_id,
       razorpay_payment_id,
       razorpay_signature,
@@ -137,7 +138,9 @@ export async function POST(req: NextRequest) {
     }
 
     const total_amount = item.rate_per_unit * qty;
-    const booking_amount = Math.round(total_amount * 0.1 * 100) / 100;
+    const booking_amount = paymentType === "full" 
+      ? total_amount 
+      : Math.round(total_amount * 0.1 * 100) / 100;
     const balance_amount = Math.round((total_amount - booking_amount) * 100) / 100;
 
     // Replacement plants: 10% of ordered qty, free of charge

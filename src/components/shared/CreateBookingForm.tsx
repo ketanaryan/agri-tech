@@ -70,6 +70,7 @@ export function CreateBookingForm({ farmers, items }: CreateBookingFormProps) {
   const [itemId, setItemId] = useState("");
   const [qtyStr, setQtyStr] = useState("1");
   const payMethod = "online";
+  const [payType, setPayType] = useState<"advance" | "full">("advance");
   const [msg, setMsg] = useState<{ text: string; type: "success" | "error"; waUrl?: string; localPdfUrl?: string; bookingId?: string } | null>(null);
   const [paying, setPaying] = useState(false);
   const [isPending, startTransition] = useTransition();
@@ -79,8 +80,8 @@ export function CreateBookingForm({ farmers, items }: CreateBookingFormProps) {
   const selectedFarmer = farmers.find((f) => f.id === farmerId);
 
   const totalAmount = selectedItem ? selectedItem.rate_per_unit * qty : 0;
-  const advanceAmount = Math.round(totalAmount * 0.1 * 100) / 100;
-  const balanceAmount = Math.round((totalAmount - advanceAmount) * 100) / 100;
+  const checkoutAmount = payType === "full" ? totalAmount : Math.round(totalAmount * 0.1 * 100) / 100;
+  const balanceAmount = Math.round((totalAmount - checkoutAmount) * 100) / 100;
 
   // Replacement plants: 10% free buffer — no charge
   const replacementQty = qty > 0 ? Math.floor(qty * 0.1) : 0;
@@ -144,6 +145,7 @@ export function CreateBookingForm({ farmers, items }: CreateBookingFormProps) {
         itemId,
         qty,
         paymentMethod: payMethod,
+        paymentType: payType,
         ...razorpayData,
       }),
     });
@@ -193,7 +195,7 @@ export function CreateBookingForm({ farmers, items }: CreateBookingFormProps) {
 
       doc.setFontSize(12);
       doc.setTextColor(22, 163, 74);
-      doc.text(`Advance Paid (10%): Rs. ${advanceAmount.toFixed(2)}`, 20, 142);
+      doc.text(`${payType === "full" ? "Full Payment" : "Advance Paid (10%)"}: Rs. ${checkoutAmount.toFixed(2)}`, 20, 142);
       
       doc.setTextColor(220, 38, 38);
       doc.text(`Balance Due at Delivery: Rs. ${balanceAmount.toFixed(2)}`, 20, 150);
@@ -224,7 +226,7 @@ export function CreateBookingForm({ farmers, items }: CreateBookingFormProps) {
 
       const waReplacementQty = Math.floor(qty * 0.1);
       const waTotalDelivered = qty + waReplacementQty;
-      let waText = `Hello ${fName},\nYour AgriTech ERP Booking is Confirmed! 🌱\n\nFarmer ID: ${fUid}\nItem: ${itemName}\n\n📦 Ordered: ${qty} plants\n🎁 Free Replacement (10%): ${waReplacementQty} plants\n✅ Total Delivery: ${waTotalDelivered} plants\n\n💰 Advance Paid: ₹${advanceAmount.toLocaleString("en-IN", { minimumFractionDigits: 2 })}\n💵 Balance Due at Delivery: ₹${balanceAmount.toLocaleString("en-IN", { minimumFractionDigits: 2 })}\n`;
+      let waText = `Hello ${fName},\nYour AgriTech ERP Booking is Confirmed! 🌱\n\nFarmer ID: ${fUid}\nItem: ${itemName}\n\n📦 Ordered: ${qty} plants\n🎁 Free Replacement (10%): ${waReplacementQty} plants\n✅ Total Delivery: ${waTotalDelivered} plants\n\n💰 ${payType === "full" ? "Total Paid" : "Advance Paid"}: ₹${checkoutAmount.toLocaleString("en-IN", { minimumFractionDigits: 2 })}\n💵 Balance Due at Delivery: ₹${balanceAmount.toLocaleString("en-IN", { minimumFractionDigits: 2 })}\n`;
       if (publicReceiptUrl) {
          waText += `\n📄 Download Receipt: ${publicReceiptUrl}\n`;
       }
@@ -233,7 +235,7 @@ export function CreateBookingForm({ farmers, items }: CreateBookingFormProps) {
       const waUrl = `https://wa.me/91${fPhone}?text=${encodeURIComponent(waText)}`;
 
       setMsg({
-        text: `✅ Booking created! Advance of ₹${advanceAmount.toFixed(2)} paid (Online). ID: ${bookData.bookingId?.slice(0, 8)}`,
+        text: `✅ Booking created! ${payType === "full" ? "Full payment" : "Advance"} of ₹${checkoutAmount.toFixed(2)} paid (Online). ID: ${bookData.bookingId?.slice(0, 8)}`,
         type: "success",
         waUrl,
         localPdfUrl,
@@ -285,13 +287,13 @@ export function CreateBookingForm({ farmers, items }: CreateBookingFormProps) {
       }
 
       const receiptId = farmerMode === "existing" 
-        ? `adv_${farmerId.slice(0, 8)}_${Date.now()}` 
-        : `adv_new_${Date.now()}`;
+        ? `${payType}_${farmerId.slice(0, 8)}_${Date.now()}` 
+        : `${payType}_new_${Date.now()}`;
 
       const notes = {
         item_id: itemId,
         qty: qty.toString(),
-        type: "advance",
+        type: payType,
         ...(farmerMode === "existing" ? { farmer_id: farmerId } : { new_farmer: "true" })
       };
 
@@ -299,7 +301,7 @@ export function CreateBookingForm({ farmers, items }: CreateBookingFormProps) {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
-          amount: advanceAmount,
+          amount: checkoutAmount,
           receipt: receiptId,
           notes,
         }),
@@ -320,7 +322,7 @@ export function CreateBookingForm({ farmers, items }: CreateBookingFormProps) {
         amount: orderData.amount,
         currency: orderData.currency,
         name: "AgriTech ERP",
-        description: `Advance for ${selectedItem?.name} × ${qty}`,
+        description: `${payType === "full" ? "Full Payment" : "Advance"} for ${selectedItem?.name} × ${qty}`,
         order_id: orderData.orderId,
         prefill: { name: prefillName, contact: prefillContact },
         theme: { color: "#16a34a" },
@@ -380,7 +382,9 @@ export function CreateBookingForm({ farmers, items }: CreateBookingFormProps) {
           <Label htmlFor="farmerId">Select Farmer</Label>
           <Select value={farmerId} onValueChange={(v) => setFarmerId(v ?? "")}>
             <SelectTrigger id="farmerId">
-              <SelectValue placeholder="Select a farmer" />
+              <SelectValue placeholder="Select a farmer">
+                {farmerId && selectedFarmer ? `${selectedFarmer.name} (${selectedFarmer.unique_id})` : null}
+              </SelectValue>
             </SelectTrigger>
             <SelectContent>
               {farmers.map((f) => (
@@ -479,7 +483,9 @@ export function CreateBookingForm({ farmers, items }: CreateBookingFormProps) {
         <Label htmlFor="itemId">Select Item</Label>
         <Select value={itemId} onValueChange={(v) => setItemId(v ?? "")}>
           <SelectTrigger id="itemId">
-            <SelectValue placeholder="Select an item" />
+            <SelectValue placeholder="Select an item">
+              {itemId && selectedItem ? `${selectedItem.name} — ₹${selectedItem.rate_per_unit}` : null}
+            </SelectValue>
           </SelectTrigger>
           <SelectContent>
             {items.map((i) => (
@@ -509,9 +515,32 @@ export function CreateBookingForm({ farmers, items }: CreateBookingFormProps) {
         />
       </div>
 
+      {/* Payment Type */}
+      <div className="space-y-2">
+        <Label>Payment Type</Label>
+        <div className="flex gap-2 mb-2">
+          <Button
+            type="button"
+            variant={payType === "advance" ? "default" : "outline"}
+            onClick={() => setPayType("advance")}
+            className={payType === "advance" ? "bg-green-700 hover:bg-green-800" : ""}
+          >
+            Advance Payment (10%)
+          </Button>
+          <Button
+            type="button"
+            variant={payType === "full" ? "default" : "outline"}
+            onClick={() => setPayType("full")}
+            className={payType === "full" ? "bg-green-700 hover:bg-green-800" : ""}
+          >
+            Full Payment (100%)
+          </Button>
+        </div>
+      </div>
+
       {/* Payment Method */}
       <div className="space-y-2">
-        <Label>Advance Payment Method</Label>
+        <Label>Payment Method</Label>
         <div className="p-3 bg-gray-50 border border-gray-200 rounded-lg text-sm text-gray-700 flex items-center">
           💳 Online Payment Only (via Razorpay)
         </div>
@@ -547,15 +576,15 @@ export function CreateBookingForm({ farmers, items }: CreateBookingFormProps) {
           </div>
 
           <div className="flex justify-between text-green-700 font-medium border-t pt-2">
-            <span>Advance Now (10%):</span>
-            <span>₹{advanceAmount.toLocaleString("en-IN", { minimumFractionDigits: 2 })}</span>
+            <span>{payType === "full" ? "Pay Now (Full):" : "Advance Now (10%):"}</span>
+            <span>₹{checkoutAmount.toLocaleString("en-IN", { minimumFractionDigits: 2 })}</span>
           </div>
           <div className="flex justify-between text-gray-400 text-xs">
             <span>Balance at Delivery:</span>
             <span>₹{balanceAmount.toLocaleString("en-IN", { minimumFractionDigits: 2 })}</span>
           </div>
           <p className="text-xs text-gray-400">
-            💳 Razorpay will open for ₹{advanceAmount.toFixed(2)}.
+            💳 Razorpay will open for ₹{checkoutAmount.toFixed(2)}.
           </p>
         </div>
       )}
@@ -617,7 +646,7 @@ export function CreateBookingForm({ farmers, items }: CreateBookingFormProps) {
         {paying || isPending || uploading
           ? "Processing..."
           : selectedItem && qty > 0
-          ? `Pay ₹${advanceAmount.toFixed(2)} & Generate Booking`
+          ? `Pay ₹${checkoutAmount.toFixed(2)} & Generate Booking`
           : "Generate Booking"}
       </Button>
     </div>
