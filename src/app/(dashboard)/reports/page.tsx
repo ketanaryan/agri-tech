@@ -80,8 +80,38 @@ export default async function ReportsPage() {
     bookings?.filter((b) => b.status === "Completed").length || 0;
   const cancelledBookings =
     bookings?.filter((b) => b.status === "Cancelled").length || 0;
-  const totalValue =
-    bookings?.reduce((sum, b) => sum + Number(b.total_amount), 0) || 0;
+  // Active Bookings (excluding cancelled)
+  const activeBookings = bookings?.filter((b) => b.status !== "Cancelled") || [];
+  
+  // Pipeline Value: Total sum of all active bookings
+  const pipelineValue = activeBookings.reduce((sum, b) => sum + Number(b.total_amount), 0);
+  
+  // Outstanding Balance: Balance expected from pending bookings
+  const pendingBookingsList = activeBookings.filter((b) => b.status === "Pending");
+  const expectedBalance = pendingBookingsList.reduce((sum, b) => sum + Number(b.balance_amount), 0);
+  
+  // Cash Collected on Delivery: Balance collected strictly on Completed orders
+  const completedBookingsList = activeBookings.filter((b) => b.status === "Completed");
+  const cashCollected = completedBookingsList.reduce((sum, b) => sum + Number(b.balance_amount), 0);
+  
+  // Advance vs Full Payments logic
+  let advanceCount = 0;
+  let fullPaymentCount = 0;
+  let advanceRevenue = 0;
+  let fullPaymentRevenue = 0;
+  
+  activeBookings.forEach((b) => {
+    // Determine payment type by comparing booking_amount with total_amount
+    if (Number(b.booking_amount) === Number(b.total_amount) && Number(b.total_amount) > 0) {
+      fullPaymentCount++;
+      fullPaymentRevenue += Number(b.booking_amount);
+    } else if (Number(b.booking_amount) > 0 || Number(b.total_amount) > 0) {
+      advanceCount++;
+      advanceRevenue += Number(b.booking_amount);
+    }
+  });
+
+  const totalRevenueEarned = advanceRevenue + fullPaymentRevenue + cashCollected;
 
   const pageTitle =
     isOfficer
@@ -94,12 +124,8 @@ export default async function ReportsPage() {
     <div className="space-y-6">
       <h1 className="text-2xl font-bold">{pageTitle}</h1>
 
-      {/* KPI Cards */}
-      <div
-        className={`grid grid-cols-1 md:grid-cols-2 ${
-          showRevenue ? "lg:grid-cols-4" : "lg:grid-cols-3"
-        } gap-6`}
-      >
+      {/* General KPI Cards */}
+      <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
         <Card>
           <CardHeader className="flex flex-row items-center justify-between pb-2">
             <CardTitle className="text-sm font-medium text-gray-500">
@@ -139,25 +165,71 @@ export default async function ReportsPage() {
           </CardContent>
         </Card>
 
-        {/* Revenue — Admin and Leader ONLY */}
-        {showRevenue && (
-          <Card>
-            <CardHeader className="flex flex-row items-center justify-between pb-2">
-              <CardTitle className="text-sm font-medium text-gray-500">
-                Pipeline Value
-              </CardTitle>
-              <span className="w-4 h-4 text-emerald-600 font-bold text-sm">₹</span>
-            </CardHeader>
-            <CardContent>
-              <div className="text-2xl font-bold flex gap-1 items-baseline">
-                <span>₹</span>
-                {totalValue.toLocaleString("en-IN")}
-              </div>
-              <p className="text-xs text-gray-500 mt-1">Gross merchandise value</p>
-            </CardContent>
-          </Card>
-        )}
       </div>
+
+      {/* Financial Overview (Admin and Leader ONLY) */}
+      {showRevenue && (
+        <div className="space-y-4">
+          <h2 className="text-xl font-bold text-gray-800">Financial Overview</h2>
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
+            {/* Total Revenue Earned */}
+            <Card className="bg-emerald-50 border-emerald-200">
+              <CardHeader className="pb-2">
+                <CardTitle className="text-sm font-medium text-emerald-800">Total Revenue Earned</CardTitle>
+              </CardHeader>
+              <CardContent>
+                <div className="text-2xl font-bold text-emerald-700">₹ {totalRevenueEarned.toLocaleString("en-IN")}</div>
+                <p className="text-xs text-emerald-600 mt-1">Cash gathered to date</p>
+              </CardContent>
+            </Card>
+            
+            {/* Expected Balance */}
+            <Card className="bg-blue-50 border-blue-200">
+              <CardHeader className="pb-2">
+                <CardTitle className="text-sm font-medium text-blue-800">Expected Balances</CardTitle>
+              </CardHeader>
+              <CardContent>
+                <div className="text-2xl font-bold text-blue-700">₹ {expectedBalance.toLocaleString("en-IN")}</div>
+                <p className="text-xs text-blue-600 mt-1">Pending delivery payouts</p>
+              </CardContent>
+            </Card>
+
+            {/* Total Pipeline */}
+            <Card>
+              <CardHeader className="pb-2">
+                <CardTitle className="text-sm font-medium text-gray-500">Pipeline Value</CardTitle>
+              </CardHeader>
+              <CardContent>
+                <div className="text-2xl font-bold text-gray-800">₹ {pipelineValue.toLocaleString("en-IN")}</div>
+                <p className="text-xs text-gray-500 mt-1">GMV (excluding cancelled)</p>
+              </CardContent>
+            </Card>
+
+            {/* Collections Breakdown */}
+            <Card>
+              <CardHeader className="pb-2">
+                <CardTitle className="text-sm font-medium text-gray-500">Collections Breakdown</CardTitle>
+              </CardHeader>
+              <CardContent>
+                <div className="flex flex-col gap-1">
+                  <div className="flex justify-between items-center text-sm">
+                    <span className="text-gray-600">Advance ({advanceCount}):</span>
+                    <span className="font-semibold">₹ {advanceRevenue.toLocaleString("en-IN")}</span>
+                  </div>
+                  <div className="flex justify-between items-center text-sm">
+                    <span className="text-gray-600">Full Pay ({fullPaymentCount}):</span>
+                    <span className="font-semibold">₹ {fullPaymentRevenue.toLocaleString("en-IN")}</span>
+                  </div>
+                  <div className="flex justify-between items-center text-sm border-t pt-1 mt-1">
+                    <span className="text-gray-600">COD Gathered:</span>
+                    <span className="font-semibold text-emerald-600">₹ {cashCollected.toLocaleString("en-IN")}</span>
+                  </div>
+                </div>
+              </CardContent>
+            </Card>
+          </div>
+        </div>
+      )}
 
       {/* Cancelled indicator (non-revenue info, safe for all roles) */}
       {cancelledBookings > 0 && (

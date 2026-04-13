@@ -15,6 +15,6 @@ export async function processPayment(bookingId: string) {
     return { error: error.message };
   }
 
-  revalidatePath("/purchasing");
+  revalidatePath("/", "layout");
   return { success: true };
 }
