@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { createClient } from "@/lib/supabase/server";
 import { createAdminClient } from "@/lib/supabase/admin";
 import crypto from "crypto";
+import Razorpay from "razorpay";
 
 async function generateFarmerUniqueId(supabase: any): Promise<string> {
   for (let i = 0; i < 5; i++) {
@@ -138,6 +139,21 @@ export async function POST(req: NextRequest) {
     const total_amount = item.rate_per_unit * qty;
     const booking_amount = Math.round(total_amount * 0.1 * 100) / 100;
     const balance_amount = Math.round((total_amount - booking_amount) * 100) / 100;
+
+    if (paymentMethod === "online") {
+      const razorpay = new Razorpay({
+        key_id: process.env.NEXT_PUBLIC_RAZORPAY_KEY_ID!,
+        key_secret: process.env.RAZORPAY_KEY_SECRET!,
+      });
+      const order = await razorpay.orders.fetch(razorpay_order_id);
+      const expectedAmountPaise = Math.round(booking_amount * 100);
+      if (order.amount !== expectedAmountPaise) {
+        return NextResponse.json(
+          { error: "Payment amount mismatch detected. Verification failed." },
+          { status: 400 }
+        );
+      }
+    }
 
     // Insert booking — try with razorpay columns first, fallback without
     const insertData: Record<string, any> = {

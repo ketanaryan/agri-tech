@@ -114,6 +114,21 @@ export async function createItem(data: FormData) {
   const rate_per_unit = parseFloat(data.get("rate_per_unit") as string);
   if (!name || isNaN(rate_per_unit)) return { error: "Invalid item data" };
 
+  const { createClient } = await import("@/lib/supabase/server");
+  const supabase = await createClient();
+  const { data: userData, error: userError } = await supabase.auth.getUser();
+  if (userError || !userData?.user) return { error: "Unauthorized caller" };
+
+  const { data: profile } = await supabase
+    .from("profiles")
+    .select("role")
+    .eq("id", userData.user.id)
+    .single();
+
+  if (profile?.role !== "Admin") {
+    return { error: "You do not have permission to manage items." };
+  }
+
   const supabaseAdmin = createAdminClient();
   const { error } = await supabaseAdmin
     .from("items")
@@ -126,6 +141,21 @@ export async function createItem(data: FormData) {
 }
 
 export async function deleteItem(id: string) {
+  const { createClient } = await import("@/lib/supabase/server");
+  const supabase = await createClient();
+  const { data: userData, error: userError } = await supabase.auth.getUser();
+  if (userError || !userData?.user) return { error: "Unauthorized caller" };
+
+  const { data: profile } = await supabase
+    .from("profiles")
+    .select("role")
+    .eq("id", userData.user.id)
+    .single();
+
+  if (profile?.role !== "Admin") {
+    return { error: "You do not have permission to manage items." };
+  }
+
   const supabaseAdmin = createAdminClient();
   const { error } = await supabaseAdmin
     .from("items")
