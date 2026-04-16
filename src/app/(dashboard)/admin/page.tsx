@@ -58,7 +58,7 @@ export default async function AdminPage() {
         <div className="border border-red-300 bg-red-50 rounded-xl p-4 space-y-2">
           <div className="flex items-center gap-2 text-red-700 font-semibold">
             <AlertTriangle className="w-5 h-5" />
-            <span>⚠️ Low Pesticide Stock Alert — {lowStockPesticides.length} item(s) need restocking!</span>
+            <span>⚠️ Low Pesticide stock Alert — {lowStockPesticides.length} item(s) need restocking!</span>
           </div>
           <div className="flex flex-wrap gap-3 mt-1">
             {lowStockPesticides.map((p) => (
