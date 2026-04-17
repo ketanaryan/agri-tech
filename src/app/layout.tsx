@@ -11,6 +11,8 @@ export const metadata: Metadata = {
     "Manage your cooperative, track crops, register farmers, and empower field operations with AgriTech ERP.",
 };
 
+import NextTopLoader from 'nextjs-toploader';
+
 export default function RootLayout({
   children,
 }: Readonly<{
@@ -18,7 +20,10 @@ export default function RootLayout({
 }>) {
   return (
     <html lang="en" className={cn("font-sans", geist.variable)} suppressHydrationWarning>
-      <body suppressHydrationWarning>{children}</body>
+      <body suppressHydrationWarning>
+        <NextTopLoader color="#16a34a" showSpinner={false} />
+        {children}
+      </body>
     </html>
   );
 }
