@@ -1,6 +1,6 @@
 import { createClient } from "@/lib/supabase/server";
 import { createItem, deleteItem } from "@/actions/admin";
-import { updateItemRate, addPesticide, deletePesticide } from "@/actions/pesticide";
+import { updateItemRate, addPesticide, deletePesticide, updatePesticideRate } from "@/actions/pesticide";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -253,9 +253,11 @@ export default async function AdminPage() {
                 <TableRow>
                   <TableHead>Pesticide</TableHead>
                   <TableHead>Unit</TableHead>
+                  <TableHead>Rate (₹)</TableHead>
                   <TableHead>Current Stock</TableHead>
                   <TableHead>Low Alert At</TableHead>
                   <TableHead>Status</TableHead>
+                  <TableHead>Update Rate</TableHead>
                   <TableHead className="w-[80px]">Delete</TableHead>
                 </TableRow>
               </TableHeader>
@@ -266,6 +268,7 @@ export default async function AdminPage() {
                     <TableRow key={p.id} className={isLow ? "bg-red-50" : ""}>
                       <TableCell className="font-medium">{p.name}</TableCell>
                       <TableCell className="text-gray-500">{p.unit}</TableCell>
+                      <TableCell className="font-mono text-green-700 font-semibold">₹{p.rate_per_unit || 0}</TableCell>
                       <TableCell>
                         <span className={`font-bold font-mono ${isLow ? "text-red-600" : "text-emerald-700"}`}>
                           {p.current_stock}
@@ -282,6 +285,24 @@ export default async function AdminPage() {
                         )}
                       </TableCell>
                       <TableCell>
+                        <form action={updatePesticideRate.bind(null, p.id) as (data: FormData) => void}
+                          className="flex gap-2 items-center">
+                          <Input
+                            name="newRate"
+                            type="number"
+                            step="0.01"
+                            min="0"
+                            placeholder="New rate"
+                            className="h-7 text-xs w-24"
+                            required
+                          />
+                          <Button type="submit" size="sm" variant="outline"
+                            className="h-7 text-xs border-amber-400 text-amber-700 hover:bg-amber-50">
+                            Update
+                          </Button>
+                        </form>
+                      </TableCell>
+                      <TableCell>
                         <form action={deletePesticide.bind(null, p.id) as () => void}>
                           <Button variant="ghost" size="sm" type="submit"
                             className="text-red-500 hover:text-red-700 h-7 text-xs">Delete</Button>
@@ -292,7 +313,7 @@ export default async function AdminPage() {
                 })}
                 {(!pesticides || pesticides.length === 0) && (
                   <TableRow>
-                    <TableCell colSpan={6} className="text-center text-gray-500 py-8">
+                    <TableCell colSpan={8} className="text-center text-gray-500 py-8">
                       No pesticides in inventory. Add one above.
                     </TableCell>
                   </TableRow>

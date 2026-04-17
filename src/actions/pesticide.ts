@@ -106,3 +106,21 @@ export async function updateItemRate(id: string, data: FormData) {
     return { error: e.message };
   }
 }
+
+export async function updatePesticideRate(id: string, data: FormData) {
+  try {
+    await requireAdmin();
+    const newRate = parseFloat((data.get("newRate") as string) ?? "0");
+    if (isNaN(newRate) || newRate < 0) return { error: "Invalid rate." };
+    const adminClient = createAdminClient();
+    const { error } = await adminClient
+      .from("pesticide_inventory")
+      .update({ rate_per_unit: newRate })
+      .eq("id", id);
+    if (error) return { error: error.message };
+    revalidatePath("/admin");
+    return { success: true };
+  } catch (e: any) {
+    return { error: e.message };
+  }
+}

@@ -65,6 +65,7 @@ export default async function BookingsPage() {
             <CreateBookingForm
               farmers={farmers ?? []}
               items={items ?? []}
+              mode="new"
             />
           </CardContent>
         </Card>

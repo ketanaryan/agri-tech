@@ -29,6 +29,7 @@ interface Item {
 interface CreateBookingFormProps {
   farmers: Farmer[];
   items: Item[];
+  mode?: "new" | "existing" | "both";
 }
 
 declare global {
@@ -51,9 +52,10 @@ function loadRazorpayScript(): Promise<boolean> {
   });
 }
 
-export function CreateBookingForm({ farmers, items }: CreateBookingFormProps) {
-  const [farmerMode, setFarmerMode] = useState<"existing" | "new">("existing");
+export function CreateBookingForm({ farmers, items, mode = "both" }: CreateBookingFormProps) {
+  const [farmerMode, setFarmerMode] = useState<"existing" | "new">(mode === "new" ? "new" : "existing");
   const [farmerId, setFarmerId] = useState("");
+
   
   // New Farmer State
   const [newFarmerName, setNewFarmerName] = useState("");
@@ -358,24 +360,26 @@ export function CreateBookingForm({ farmers, items }: CreateBookingFormProps) {
   return (
     <div className="space-y-6">
       {/* Farmer Mode Toggle */}
-      <div className="flex gap-2">
-        <Button
-          type="button"
-          variant={farmerMode === "existing" ? "default" : "outline"}
-          onClick={() => setFarmerMode("existing")}
-          className={farmerMode === "existing" ? "bg-green-700 hover:bg-green-800" : ""}
-        >
-          Existing Farmer
-        </Button>
-        <Button
-          type="button"
-          variant={farmerMode === "new" ? "default" : "outline"}
-          onClick={() => setFarmerMode("new")}
-          className={farmerMode === "new" ? "bg-green-700 hover:bg-green-800" : ""}
-        >
-          New Farmer
-        </Button>
-      </div>
+      {mode === "both" && (
+        <div className="flex gap-2">
+          <Button
+            type="button"
+            variant={farmerMode === "existing" ? "default" : "outline"}
+            onClick={() => setFarmerMode("existing")}
+            className={farmerMode === "existing" ? "bg-green-700 hover:bg-green-800" : ""}
+          >
+            Existing Farmer
+          </Button>
+          <Button
+            type="button"
+            variant={farmerMode === "new" ? "default" : "outline"}
+            onClick={() => setFarmerMode("new")}
+            className={farmerMode === "new" ? "bg-green-700 hover:bg-green-800" : ""}
+          >
+            New Farmer
+          </Button>
+        </div>
+      )}
 
       {farmerMode === "existing" ? (
         <div className="space-y-2">
