@@ -1,6 +1,7 @@
 "use client";
 
 import { useState } from "react";
+import { useRouter } from "next/navigation";
 import { Button } from "@/components/ui/button";
 
 
@@ -116,6 +117,7 @@ async function completeBooking(
 }
 
 export function PDFButton({ booking }: { booking: BookingInfo }) {
+  const router = useRouter();
   const [loading, setLoading] = useState<"online" | "cash" | null>(null);
   const [done, setDone] = useState(false);
   const [paidMethod, setPaidMethod] = useState<string>("");
@@ -160,6 +162,7 @@ export function PDFButton({ booking }: { booking: BookingInfo }) {
 
     setPaidMethod(method);
     setDone(true);
+    router.refresh();
   };
 
   const handleCash = async () => {
