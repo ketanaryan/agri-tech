@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { createClient } from "@/lib/supabase/server";
+import { createAdminClient } from "@/lib/supabase/admin";
 import crypto from "crypto";
 import Razorpay from "razorpay";
 import { revalidatePath } from "next/cache";
@@ -96,22 +97,25 @@ export async function POST(req: NextRequest) {
       updateData.balance_razorpay_payment_id = razorpay_payment_id ?? null;
     }
 
-    const { error: updateError } = await supabase
+    const adminClient = createAdminClient();
+    const { error: updateError, data: updatedRows } = await adminClient
       .from("bookings")
       .update(updateData)
       .eq("id", bookingId)
-      .eq("status", "Pending");
+      .eq("status", "Pending")
+      .select();
 
-    if (updateError) {
+    if (updateError || !updatedRows || updatedRows.length === 0) {
       // Fallback: update with just status
-      const { error: fallbackErr } = await supabase
+      const { error: fallbackErr, data: fallbackRows } = await adminClient
         .from("bookings")
         .update({ status: "Completed" })
         .eq("id", bookingId)
-        .eq("status", "Pending");
+        .eq("status", "Pending")
+        .select();
 
-      if (fallbackErr) {
-        return NextResponse.json({ error: fallbackErr.message }, { status: 500 });
+      if (fallbackErr || !fallbackRows || fallbackRows.length === 0) {
+        return NextResponse.json({ error: fallbackErr?.message ?? "Could not update booking. It may have been modified already." }, { status: 500 });
       }
     }
 
