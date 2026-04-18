@@ -74,48 +74,6 @@ export async function registerFarmer(data: FormData) {
   return { success: true, data: newFarmer };
 }
 
-export async function createBooking(data: FormData) {
-  const farmerId = data.get("farmerId") as string;
-  const itemId = data.get("itemId") as string;
-  const qty = parseInt(data.get("qty") as string, 10);
-
-  if (!farmerId || !itemId || isNaN(qty) || qty <= 0) {
-    return { error: "Invalid booking inputs" };
-  }
-
-  const supabase = await createClient();
-  const { data: item, error: itemError } = await supabase
-    .from("items")
-    .select("rate_per_unit")
-    .eq("id", itemId)
-    .single();
-
-  if (itemError || !item) return { error: "Item not found" };
-
-  const total_amount = item.rate_per_unit * qty;
-  const booking_amount = total_amount * 0.1;
-  const balance_amount = total_amount - booking_amount;
-
-  const {
-    data: { user },
-  } = await supabase.auth.getUser();
-
-  const { error: insertError } = await supabase.from("bookings").insert({
-    farmer_id: farmerId,
-    item_id: itemId,
-    qty,
-    total_amount,
-    booking_amount,
-    balance_amount,
-    status: "Pending",
-    created_by: user?.id,
-  });
-
-  if (insertError) return { error: insertError.message };
-
-  revalidatePath("/bookings");
-  return { success: true };
-}
 
 export async function cancelBooking(bookingId: string) {
   const supabase = await createClient();
