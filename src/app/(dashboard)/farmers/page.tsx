@@ -123,6 +123,8 @@ export default async function FarmersDirectoryPage({
                   <TableHead>Farmer ID</TableHead>
                   <TableHead>Name</TableHead>
                   <TableHead>Phone Number</TableHead>
+                  <TableHead>PAN Card</TableHead>
+                  <TableHead>Aadhar Card</TableHead>
                   <TableHead>Address</TableHead>
                   <TableHead>Registered</TableHead>
                 </TableRow>
@@ -173,7 +175,30 @@ export default async function FarmersDirectoryPage({
                         {farmer.name}
                       </Link>
                     </TableCell>
-                    <TableCell>{farmer.phone}</TableCell>
+                    <TableCell>
+                      <div>{farmer.phone}</div>
+                      {farmer.alternate_phone && (
+                        <div className="text-xs text-gray-400">Alt: {farmer.alternate_phone}</div>
+                      )}
+                    </TableCell>
+                    <TableCell>
+                      {farmer.pan_card ? (
+                        <span className="font-mono text-xs bg-blue-50 text-blue-700 px-2 py-0.5 rounded border border-blue-100">
+                          {farmer.pan_card}
+                        </span>
+                      ) : (
+                        <span className="text-gray-300 text-xs">—</span>
+                      )}
+                    </TableCell>
+                    <TableCell>
+                      {farmer.aadhar_card ? (
+                        <span className="font-mono text-xs bg-purple-50 text-purple-700 px-2 py-0.5 rounded border border-purple-100">
+                          {farmer.aadhar_card}
+                        </span>
+                      ) : (
+                        <span className="text-gray-300 text-xs">—</span>
+                      )}
+                    </TableCell>
                     <TableCell className="max-w-xs truncate">
                       {farmer.address || "N/A"}
                     </TableCell>
@@ -185,7 +210,7 @@ export default async function FarmersDirectoryPage({
                 {farmers?.length === 0 && (
                   <TableRow>
                     <TableCell
-                      colSpan={6}
+                      colSpan={8}
                       className="h-24 text-center text-gray-500"
                     >
                       {searchQuery

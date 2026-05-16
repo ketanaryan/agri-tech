@@ -144,10 +144,27 @@ export default async function FarmerProfilePage({
               </div>
               <div className="mt-2 space-y-1 text-sm text-gray-600">
                 <p>📞 {farmer.phone}</p>
+                {farmer.alternate_phone && <p>📱 Alt: {farmer.alternate_phone}</p>}
                 {farmer.address && <p>📍 {farmer.address}</p>}
                 {farmer.district && <p>🏘 District: {farmer.district}</p>}
                 <p>🗓 Registered: {new Date(farmer.created_at).toLocaleDateString("en-IN", { dateStyle: "long" })}</p>
               </div>
+
+              {/* ID Documents */}
+              {(farmer.pan_card || farmer.aadhar_card) && (
+                <div className="mt-3 flex flex-wrap gap-3">
+                  {farmer.pan_card && (
+                    <span className="inline-flex items-center gap-1.5 bg-blue-50 text-blue-800 text-xs font-medium px-3 py-1.5 rounded-lg border border-blue-200">
+                      🪪 PAN: <span className="font-mono font-semibold tracking-wide">{farmer.pan_card}</span>
+                    </span>
+                  )}
+                  {farmer.aadhar_card && (
+                    <span className="inline-flex items-center gap-1.5 bg-purple-50 text-purple-800 text-xs font-medium px-3 py-1.5 rounded-lg border border-purple-200">
+                      🆔 Aadhar: <span className="font-mono font-semibold tracking-wide">{farmer.aadhar_card}</span>
+                    </span>
+                  )}
+                </div>
+              )}
             </div>
           </div>
         </CardContent>
