@@ -35,14 +35,12 @@ export function Sidebar({ role }: SidebarProps) {
           { href: "/admin", label: "Dashboard", icon: LayoutDashboard },
           { href: "/farmers", label: "Farmer Directory", icon: Users },
           { href: "/bookings", label: "New Booking", icon: FileText },
-          { href: "/bookings/existing", label: "Existing Booking", icon: FileText },
           { href: "/bookings/pesticide", label: "Pesticide Booking", icon: Leaf },
           { href: "/reports", label: "Reports", icon: BarChart3 },
         ];
       case "FieldOfficer":
         return [
           { href: "/bookings", label: "New Booking", icon: FileText },
-          { href: "/bookings/existing", label: "Existing Booking", icon: FileText },
           { href: "/bookings/pesticide", label: "Pesticide Booking", icon: Leaf },
           { href: "/farmers", label: "Farmers", icon: Users },
           { href: "/plant-report", label: "Plant Report", icon: Package },
@@ -52,7 +50,6 @@ export function Sidebar({ role }: SidebarProps) {
         return [
           { href: "/leader", label: "Manage Team", icon: UserPlus },
           { href: "/bookings", label: "New Booking", icon: FileText },
-          { href: "/bookings/existing", label: "Existing Booking", icon: FileText },
           { href: "/bookings/pesticide", label: "Pesticide Booking", icon: Leaf },
           { href: "/purchasing", label: "Purchasing", icon: Search },
           { href: "/farmers", label: "Farmer Directory", icon: Users },
@@ -62,9 +59,6 @@ export function Sidebar({ role }: SidebarProps) {
         return [
           { href: "/counselor", label: "Dashboard", icon: LayoutDashboard },
           { href: "/farmers", label: "Farmer Directory", icon: Users },
-          { href: "/bookings", label: "New Booking", icon: FileText },
-          { href: "/bookings/existing", label: "Existing Booking", icon: FileText },
-          { href: "/bookings/pesticide", label: "Pesticide Booking", icon: Leaf },
           { href: "/reports", label: "Reports", icon: BarChart3 },
         ];
       case "Telecaller":

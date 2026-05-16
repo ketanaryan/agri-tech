@@ -25,7 +25,14 @@ interface Pesticide {
   low_stock_threshold: number;
 }
 
-export function PlantReportForm() {
+interface Farmer {
+  id: string;
+  name: string;
+  unique_id: string;
+  phone: string;
+}
+
+export function PlantReportForm({ farmers }: { farmers: Farmer[] }) {
   const router = useRouter();
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -34,7 +41,6 @@ export function PlantReportForm() {
 
   // Form State
   const [farmerId, setFarmerId] = useState("");
-  const [plantsDelivered, setPlantsDelivered] = useState("");
   const [status, setStatus] = useState("Delivered");
   const [pesticideGiven, setPesticideGiven] = useState("no");
   const [remarks, setRemarks] = useState("");
@@ -117,8 +123,9 @@ export function PlantReportForm() {
 
       // 2. Submit form data
       const formData = new FormData();
+      // farmerId state contains the unique_id (or user typing). The DB query in action might need unique_id.
       formData.append("farmer_id", farmerId);
-      formData.append("plants_delivered", plantsDelivered);
+      formData.append("plants_delivered", "0");
       formData.append("status", status);
       formData.append("pesticide_given", pesticideGiven);
       formData.append("remarks", remarks);
@@ -145,7 +152,6 @@ export function PlantReportForm() {
 
       // Reset form
       setFarmerId("");
-      setPlantsDelivered("");
       setStatus("Delivered");
       setPesticideGiven("no");
       setPesticideId("");
@@ -199,44 +205,23 @@ export function PlantReportForm() {
         <Label htmlFor="farmerId">Farmer ID</Label>
         <Input
           id="farmerId"
-          placeholder="Enter Farmer ID (e.g., BPFRM1234)"
+          list="farmer-list"
+          placeholder="Enter Farmer ID (e.g., BPFRM1234) or Phone"
           value={farmerId}
           onChange={(e) => setFarmerId(e.target.value)}
           required
         />
+        <datalist id="farmer-list">
+          {farmers.map((f) => (
+            <option key={f.id} value={f.unique_id}>
+              {f.name} - {f.phone}
+            </option>
+          ))}
+        </datalist>
       </div>
 
-      {/* Plants Delivered + Status */}
+      {/* Status */}
       <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-        <div className="space-y-2">
-          <Label htmlFor="plantsDelivered">Number of Plants Delivered (Ordered)</Label>
-          <Input
-            id="plantsDelivered"
-            type="number"
-            min="1"
-            placeholder="Enter ordered quantity"
-            value={plantsDelivered}
-            onChange={(e) => setPlantsDelivered(e.target.value)}
-            required
-          />
-          {/* Replacement plant breakdown */}
-          {parseInt(plantsDelivered, 10) > 0 && (() => {
-            const ordered = parseInt(plantsDelivered, 10);
-            const replacement = Math.floor(ordered * 0.1);
-            const total = ordered + replacement;
-            return (
-              <div className="flex items-center gap-3 mt-1 p-2.5 bg-emerald-50 border border-emerald-200 rounded-md text-xs">
-                <span className="text-emerald-700">🌱</span>
-                <div className="flex gap-4 flex-wrap">
-                  <span className="text-gray-600">Ordered: <strong className="text-gray-900">{ordered}</strong></span>
-                  <span className="text-emerald-600">+ Replacement (10%): <strong>{replacement}</strong></span>
-                  <span className="text-gray-700 font-semibold">📦 Total Delivered: {total}</span>
-                </div>
-              </div>
-            );
-          })()}
-        </div>
-
         <div className="space-y-2">
           <Label htmlFor="status">Status</Label>
           <Select value={status} onValueChange={(val) => setStatus(val || "")}>

@@ -148,14 +148,18 @@ export default async function AdminPage() {
             </p>
           </CardHeader>
           <CardContent className="space-y-6">
-            <form action={createItem as (data: FormData) => void} className="flex gap-4 items-end">
-              <div className="space-y-2 flex-1">
+            <form action={createItem as (data: FormData) => void} className="flex gap-4 items-end flex-wrap">
+              <div className="space-y-2 flex-1 min-w-[150px]">
                 <Label htmlFor="itemName">Item Name</Label>
                 <Input id="itemName" name="name" placeholder="e.g. Mango Sapling" required />
               </div>
-              <div className="space-y-2 w-32">
+              <div className="space-y-2 w-28">
                 <Label htmlFor="rate">Rate (₹)</Label>
                 <Input id="rate" name="rate_per_unit" type="number" step="0.01" required />
+              </div>
+              <div className="space-y-2 w-28">
+                <Label htmlFor="advance_percentage">Adv. %</Label>
+                <Input id="advance_percentage" name="advance_percentage" type="number" step="0.01" defaultValue="10.00" required />
               </div>
               <Button type="submit" className="bg-green-700 hover:bg-green-800">Add Item</Button>
             </form>

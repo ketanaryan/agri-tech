@@ -112,7 +112,8 @@ export async function createUser(data: FormData) {
 export async function createItem(data: FormData) {
   const name = data.get("name") as string;
   const rate_per_unit = parseFloat(data.get("rate_per_unit") as string);
-  if (!name || isNaN(rate_per_unit)) return { error: "Invalid item data" };
+  const advance_percentage = parseFloat(data.get("advance_percentage") as string || "10");
+  if (!name || isNaN(rate_per_unit) || isNaN(advance_percentage)) return { error: "Invalid item data" };
 
   const { createClient } = await import("@/lib/supabase/server");
   const supabase = await createClient();
@@ -125,14 +126,14 @@ export async function createItem(data: FormData) {
     .eq("id", userData.user.id)
     .single();
 
-  if (profile?.role !== "Admin") {
+  if (profile?.role !== "Admin" && profile?.role !== "Counselor") {
     return { error: "You do not have permission to manage items." };
   }
 
   const supabaseAdmin = createAdminClient();
   const { error } = await supabaseAdmin
     .from("items")
-    .insert({ name, rate_per_unit });
+    .insert({ name, rate_per_unit, advance_percentage });
   if (error) return { error: error.message };
 
   revalidatePath("/admin");

@@ -24,6 +24,7 @@ interface Item {
   id: string;
   name: string;
   rate_per_unit: number;
+  advance_percentage?: number;
 }
 
 interface CreateBookingFormProps {
@@ -82,7 +83,10 @@ export function CreateBookingForm({ farmers, items, mode = "both" }: CreateBooki
   const selectedFarmer = farmers.find((f) => f.id === farmerId);
 
   const totalAmount = selectedItem ? selectedItem.rate_per_unit * qty : 0;
-  const checkoutAmount = payType === "full" ? totalAmount : Math.round(totalAmount * 0.1 * 100) / 100;
+  
+  // Use custom advance percentage if specified, otherwise 10%
+  const advancePercent = selectedItem?.advance_percentage ?? 10;
+  const checkoutAmount = payType === "full" ? totalAmount : Math.round(totalAmount * (advancePercent / 100) * 100) / 100;
   const balanceAmount = Math.round((totalAmount - checkoutAmount) * 100) / 100;
 
   // Replacement plants: 10% free buffer — no charge
@@ -197,7 +201,7 @@ export function CreateBookingForm({ farmers, items, mode = "both" }: CreateBooki
 
       doc.setFontSize(12);
       doc.setTextColor(22, 163, 74);
-      doc.text(`${payType === "full" ? "Full Payment" : "Advance Paid (10%)"}: Rs. ${checkoutAmount.toFixed(2)}`, 20, 142);
+      doc.text(`${payType === "full" ? "Full Payment" : `Advance Paid (${advancePercent}%)`}: Rs. ${checkoutAmount.toFixed(2)}`, 20, 142);
       
       doc.setTextColor(220, 38, 38);
       doc.text(`Balance Due at Delivery: Rs. ${balanceAmount.toFixed(2)}`, 20, 150);
@@ -529,7 +533,7 @@ export function CreateBookingForm({ farmers, items, mode = "both" }: CreateBooki
             onClick={() => setPayType("advance")}
             className={payType === "advance" ? "bg-green-700 hover:bg-green-800" : ""}
           >
-            Advance Payment (10%)
+            Advance Payment ({advancePercent}%)
           </Button>
           <Button
             type="button"
@@ -580,7 +584,7 @@ export function CreateBookingForm({ farmers, items, mode = "both" }: CreateBooki
           </div>
 
           <div className="flex justify-between text-green-700 font-medium border-t pt-2">
-            <span>{payType === "full" ? "Pay Now (Full):" : "Advance Now (10%):"}</span>
+            <span>{payType === "full" ? "Pay Now (Full):" : `Advance Now (${advancePercent}%):`}</span>
             <span>₹{checkoutAmount.toLocaleString("en-IN", { minimumFractionDigits: 2 })}</span>
           </div>
           <div className="flex justify-between text-gray-400 text-xs">

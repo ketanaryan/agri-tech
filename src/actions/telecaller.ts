@@ -5,9 +5,13 @@ import { revalidatePath } from "next/cache";
 
 export async function logTelecallerAction(formData: FormData) {
   const bookingId = formData.get("booking_id") as string;
-  const notes = formData.get("notes") as string;
+  const notes = formData.get("notes") as string | null;
+  const pesticide_given = formData.get("pesticide_given") === "yes";
+  const water_given = formData.get("water_given") as string | null;
+  const no_issue = formData.get("no_issue") === "true";
+  const forward_to = formData.get("forward_to") as string | null;
 
-  if (!bookingId || !notes) {
+  if (!bookingId) {
     return { error: "Missing required fields" };
   }
 
@@ -24,11 +28,15 @@ export async function logTelecallerAction(formData: FormData) {
     return { error: "Permission denied" };
   }
 
-  // Insert into call_logs Table (Requires Admin to have run the SQL to create this schema first!)
+  // Insert into call_logs Table
   const { error } = await supabase.from("call_logs").insert({
     booking_id: bookingId,
     caller_id: user.id,
     notes: notes,
+    pesticide_given,
+    water_given,
+    no_issue,
+    forward_to
   });
 
   if (error) {

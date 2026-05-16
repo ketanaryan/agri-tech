@@ -23,6 +23,13 @@ export default async function PlantReportPage() {
     redirect("/"); // triggers role-based routing in app/page.tsx
   }
 
+  // Fetch farmers for the combobox
+  const { data: farmers } = await supabase
+    .from("farmers")
+    .select("id, name, unique_id, phone")
+    .is("deleted_at", null)
+    .order("created_at", { ascending: false });
+
   return (
     <div className="max-w-3xl mx-auto space-y-6">
       <div className="flex items-center justify-between border-b pb-4">
@@ -31,7 +38,7 @@ export default async function PlantReportPage() {
         </h1>
       </div>
       <div className="bg-white rounded-lg shadow-sm border p-6">
-        <PlantReportForm />
+        <PlantReportForm farmers={farmers ?? []} />
       </div>
     </div>
   );
