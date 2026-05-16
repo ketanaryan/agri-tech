@@ -104,6 +104,9 @@ export async function POST(req: NextRequest) {
           phone: newFarmerData.phone,
           address: newFarmerData.address || null,
           photo_url: newFarmerData.photo_url || null,
+          pan_card: newFarmerData.pan_card || null,
+          aadhar_card: newFarmerData.aadhar_card || null,
+          alternate_phone: newFarmerData.alternate_phone || null,
           unique_id: generated_unique_id,
           district,
         })

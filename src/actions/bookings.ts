@@ -26,6 +26,9 @@ export async function registerFarmer(data: FormData) {
   const phone = data.get("phone") as string;
   const address = data.get("address") as string;
   const photo_url = data.get("photo_url") as string | null;
+  const pan_card = data.get("pan_card") as string | null;
+  const aadhar_card = data.get("aadhar_card") as string | null;
+  const alternate_phone = data.get("alternate_phone") as string | null;
 
   if (!name || !phone) return { error: "Name and phone are required." };
 
@@ -61,6 +64,9 @@ export async function registerFarmer(data: FormData) {
       phone,
       address,
       photo_url: photo_url || null,
+      pan_card: pan_card || null,
+      aadhar_card: aadhar_card || null,
+      alternate_phone: alternate_phone || null,
       unique_id,
       district,
     })

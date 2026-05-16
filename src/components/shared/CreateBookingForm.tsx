@@ -62,6 +62,9 @@ export function CreateBookingForm({ farmers, items, mode = "both" }: CreateBooki
   const [newFarmerName, setNewFarmerName] = useState("");
   const [newFarmerPhone, setNewFarmerPhone] = useState("");
   const [newFarmerAddress, setNewFarmerAddress] = useState("");
+  const [newFarmerPanCard, setNewFarmerPanCard] = useState("");
+  const [newFarmerAadharCard, setNewFarmerAadharCard] = useState("");
+  const [newFarmerAltPhone, setNewFarmerAltPhone] = useState("");
   
   // Photo Upload State
   const [photoPreview, setPhotoPreview] = useState<string | null>(null);
@@ -146,7 +149,10 @@ export function CreateBookingForm({ farmers, items, mode = "both" }: CreateBooki
           name: newFarmerName,
           phone: newFarmerPhone,
           address: newFarmerAddress,
-          photo_url: photoUrl
+          photo_url: photoUrl,
+          pan_card: newFarmerPanCard,
+          aadhar_card: newFarmerAadharCard,
+          alternate_phone: newFarmerAltPhone
         } : undefined,
         itemId,
         qty,
@@ -429,6 +435,17 @@ export function CreateBookingForm({ farmers, items, mode = "both" }: CreateBooki
                 inputMode="numeric"
               />
             </div>
+            <div className="space-y-2">
+              <Label htmlFor="newFarmerAltPhone">Alternate Phone (Optional)</Label>
+              <Input
+                id="newFarmerAltPhone"
+                value={newFarmerAltPhone}
+                onChange={(e) => setNewFarmerAltPhone(e.target.value.replace(/[^0-9]/g, ""))}
+                placeholder="9876543211"
+                maxLength={10}
+                inputMode="numeric"
+              />
+            </div>
             <div className="space-y-2 md:col-span-2">
               <Label htmlFor="newFarmerAddress">Address / Village</Label>
               <Input
@@ -436,6 +453,27 @@ export function CreateBookingForm({ farmers, items, mode = "both" }: CreateBooki
                 value={newFarmerAddress}
                 onChange={(e) => setNewFarmerAddress(e.target.value)}
                 placeholder="Village Name"
+              />
+            </div>
+            <div className="space-y-2">
+              <Label htmlFor="newFarmerPanCard">PAN Card Number</Label>
+              <Input
+                id="newFarmerPanCard"
+                value={newFarmerPanCard}
+                onChange={(e) => setNewFarmerPanCard(e.target.value.toUpperCase())}
+                placeholder="ABCDE1234F"
+                maxLength={10}
+              />
+            </div>
+            <div className="space-y-2">
+              <Label htmlFor="newFarmerAadharCard">Aadhar Card Number</Label>
+              <Input
+                id="newFarmerAadharCard"
+                value={newFarmerAadharCard}
+                onChange={(e) => setNewFarmerAadharCard(e.target.value.replace(/[^0-9]/g, ""))}
+                placeholder="123456789012"
+                maxLength={12}
+                inputMode="numeric"
               />
             </div>
 

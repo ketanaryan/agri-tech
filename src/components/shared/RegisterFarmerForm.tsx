@@ -106,6 +106,46 @@ export function RegisterFarmerForm() {
         <Input id="address" name="address" placeholder="Village Name" />
       </div>
 
+      {/* Alternate Phone */}
+      <div className="space-y-2">
+        <Label htmlFor="alternate_phone">Alternate Phone (Optional)</Label>
+        <Input
+          id="alternate_phone"
+          name="alternate_phone"
+          placeholder="9876543211"
+          pattern="[0-9]{10}"
+          maxLength={10}
+          title="Enter exactly 10 digits if provided"
+          inputMode="numeric"
+        />
+      </div>
+
+      {/* PAN Card */}
+      <div className="space-y-2">
+        <Label htmlFor="pan_card">PAN Card Number (Optional)</Label>
+        <Input
+          id="pan_card"
+          name="pan_card"
+          placeholder="ABCDE1234F"
+          maxLength={10}
+          style={{ textTransform: 'uppercase' }}
+        />
+      </div>
+
+      {/* Aadhar Card */}
+      <div className="space-y-2">
+        <Label htmlFor="aadhar_card">Aadhar Card Number (Optional)</Label>
+        <Input
+          id="aadhar_card"
+          name="aadhar_card"
+          placeholder="123456789012"
+          pattern="[0-9]{12}"
+          maxLength={12}
+          title="Enter exactly 12 digits"
+          inputMode="numeric"
+        />
+      </div>
+
       {/* Photo Upload */}
       <div className="space-y-2">
         <Label>Farmer Photo</Label>
