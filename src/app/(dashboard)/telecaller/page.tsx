@@ -1,6 +1,7 @@
 import React from "react";
 import { createClient } from "@/lib/supabase/server";
 import { redirect } from "next/navigation";
+import Link from "next/link";
 import {
   Card,
   CardContent,
@@ -21,10 +22,25 @@ import { PhoneCall, XCircle, MessageSquare, Search } from "lucide-react";
 import { cancelBooking } from "@/actions/bookings";
 import { LogCallModal } from "@/components/shared/LogCallModal";
 
+// Helper function for relative time
+function formatTimeAgo(dateString: string) {
+  const date = new Date(dateString);
+  const now = new Date();
+  const diffInSeconds = Math.floor((now.getTime() - date.getTime()) / 1000);
+  
+  if (diffInSeconds < 60) return "Just now";
+  if (diffInSeconds < 3600) return `${Math.floor(diffInSeconds / 60)}m ago`;
+  if (diffInSeconds < 86400) return `${Math.floor(diffInSeconds / 3600)}h ago`;
+  const days = Math.floor(diffInSeconds / 86400);
+  if (days === 1) return "Yesterday";
+  if (days < 30) return `${days}d ago`;
+  return date.toLocaleDateString("en-IN", { month: "short", day: "numeric" });
+}
+
 export default async function TelecallerPage({
   searchParams,
 }: {
-  searchParams: Promise<{ q?: string }>;
+  searchParams: Promise<{ q?: string; status?: string }>;
 }) {
   const supabase = await createClient();
   const {
@@ -43,14 +59,15 @@ export default async function TelecallerPage({
     redirect("/");
   }
 
-  const { q } = await searchParams;
+  const { q, status } = await searchParams;
   const searchQuery = q?.trim() ?? "";
+  const currentStatus = status || "All";
 
-  // Fetch all bookings (not just pending)
+  // Fetch all bookings
   let query = supabase
     .from("bookings")
     .select(
-      `id, balance_amount, created_at, status,
+      `id, farmer_id, balance_amount, created_at, status,
        farmers!inner ( name, phone, unique_id ),
        items ( name )`
     )
@@ -60,6 +77,11 @@ export default async function TelecallerPage({
   // Add search by Farmer ID or Name
   if (searchQuery) {
     query = query.or(`unique_id.ilike.%${searchQuery}%,name.ilike.%${searchQuery}%`, { referencedTable: 'farmers' });
+  }
+
+  // Add status filter
+  if (currentStatus !== "All") {
+    query = query.eq("status", currentStatus);
   }
 
   const { data: pendingBookings } = await query;
@@ -81,6 +103,8 @@ export default async function TelecallerPage({
     logsByBooking[log.booking_id].push(log);
   });
 
+  const statuses = ["All", "Pending", "Delivered", "Completed", "Cancelled"];
+
   return (
     <div className="space-y-6">
       <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
@@ -93,6 +117,9 @@ export default async function TelecallerPage({
 
         {/* Search bar */}
         <form className="relative w-full md:w-72">
+          {currentStatus !== "All" && (
+            <input type="hidden" name="status" value={currentStatus} />
+          )}
           <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400" />
           <input
             type="text"
@@ -104,9 +131,29 @@ export default async function TelecallerPage({
         </form>
       </div>
 
+      {/* Tabs */}
+      <div className="flex space-x-1 border-b overflow-x-auto pb-px">
+        {statuses.map((s) => (
+          <Link
+            key={s}
+            href={`/telecaller?${new URLSearchParams({
+              ...(searchQuery ? { q: searchQuery } : {}),
+              ...(s !== "All" ? { status: s } : {}),
+            }).toString()}`}
+            className={`px-4 py-2 text-sm font-medium whitespace-nowrap transition-colors border-b-2 ${
+              currentStatus === s
+                ? "border-green-600 text-green-600"
+                : "border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300"
+            }`}
+          >
+            {s}
+          </Link>
+        ))}
+      </div>
+
       <Card>
         <CardHeader>
-          <CardTitle>Bookings Queue</CardTitle>
+          <CardTitle>Bookings Queue ({currentStatus})</CardTitle>
           <CardDescription>
             {pendingBookings?.length || 0} booking(s) found.
           </CardDescription>
@@ -121,6 +168,7 @@ export default async function TelecallerPage({
                   <TableHead>Due Balance</TableHead>
                   <TableHead>Status</TableHead>
                   <TableHead>Contact</TableHead>
+                  <TableHead>Last Contacted</TableHead>
                   <TableHead className="min-w-[120px]">Log Outcome</TableHead>
                   <TableHead>Cancel</TableHead>
                 </TableRow>
@@ -130,23 +178,37 @@ export default async function TelecallerPage({
                   const farmer = b.farmers as any;
                   const item = b.items as any;
                   const logs = logsByBooking[b.id] || [];
+                  const lastLog = logs[0]; // Already ordered by created_at desc
 
                   return (
                     <React.Fragment key={b.id}>
                       {/* Main booking row */}
                       <TableRow className="align-top">
                         <TableCell>
-                          <div className="font-medium text-green-700">{farmer?.name}</div>
+                          <Link href={`/farmers/${b.farmer_id}`} className="font-medium text-green-700 hover:underline">
+                            {farmer?.name}
+                          </Link>
                           <div className="text-xs text-gray-500">{farmer?.unique_id}</div>
                         </TableCell>
                         <TableCell>{item?.name}</TableCell>
-                        <TableCell className="font-bold text-orange-600 whitespace-nowrap">
-                          ₹ {Number(b.balance_amount).toLocaleString("en-IN")}
+                        <TableCell className="font-bold whitespace-nowrap">
+                          {b.status === "Completed" ? (
+                            <span className="text-green-600 flex items-center gap-1">
+                              ✅ Paid
+                            </span>
+                          ) : b.status === "Cancelled" ? (
+                            <span className="text-gray-400">—</span>
+                          ) : (
+                            <span className="text-orange-600">
+                              ₹ {Number(b.balance_amount).toLocaleString("en-IN")}
+                            </span>
+                          )}
                         </TableCell>
                         <TableCell>
                           <span className={`px-2 py-1 text-[10px] uppercase font-bold tracking-wider rounded-full ${
                             b.status === "Pending" ? "bg-orange-100 text-orange-700" :
-                            b.status === "Delivered" ? "bg-green-100 text-green-700" :
+                            b.status === "Delivered" ? "bg-blue-100 text-blue-700" :
+                            b.status === "Completed" ? "bg-green-100 text-green-700" :
                             "bg-gray-100 text-gray-700"
                           }`}>
                             {b.status}
@@ -162,6 +224,15 @@ export default async function TelecallerPage({
                           </a>
                         </TableCell>
                         <TableCell>
+                          {lastLog ? (
+                            <span className="text-xs text-gray-600 font-medium bg-gray-100 px-2 py-1 rounded">
+                              {formatTimeAgo(lastLog.created_at)}
+                            </span>
+                          ) : (
+                            <span className="text-xs text-gray-400 italic">Never called</span>
+                          )}
+                        </TableCell>
+                        <TableCell>
                           <LogCallModal bookingId={b.id} />
                         </TableCell>
                         <TableCell>
@@ -172,7 +243,7 @@ export default async function TelecallerPage({
                               size="sm"
                               className="text-red-500 hover:text-red-700 hover:bg-red-50 h-8 text-xs"
                               title="Cancel this booking"
-                              disabled={b.status === "Cancelled" || b.status === "Delivered"}
+                              disabled={b.status === "Cancelled" || b.status === "Delivered" || b.status === "Completed"}
                             >
                               <XCircle className="w-3.5 h-3.5 mr-1" />
                               Cancel
@@ -184,7 +255,7 @@ export default async function TelecallerPage({
                       {/* Call log history sub-row */}
                       {logs.length > 0 && (
                         <TableRow className="bg-gray-50/70">
-                          <TableCell colSpan={7} className="py-2 px-4">
+                          <TableCell colSpan={8} className="py-2 px-4">
                             <div className="flex items-start gap-2">
                               <MessageSquare className="w-3.5 h-3.5 text-gray-400 mt-0.5 shrink-0" />
                               <div className="space-y-2 w-full">
@@ -223,8 +294,8 @@ export default async function TelecallerPage({
                 })}
                 {pendingBookings?.length === 0 && (
                   <TableRow>
-                    <TableCell colSpan={7} className="h-24 text-center text-gray-500">
-                      No bookings found.
+                    <TableCell colSpan={8} className="h-24 text-center text-gray-500">
+                      No bookings found for the selected status/search.
                     </TableCell>
                   </TableRow>
                 )}
