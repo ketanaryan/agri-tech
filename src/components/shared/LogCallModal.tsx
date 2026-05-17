@@ -44,6 +44,9 @@ export function LogCallModal({ bookingId, farmers = [], existingLogsCount = 0 }:
   const todayStr = today.toISOString().split("T")[0];
   const nowTime = today.toLocaleTimeString("en-GB", { hour: "2-digit", minute: "2-digit" });
 
+  const [callDate, setCallDate] = useState(todayStr);
+  const [callTime, setCallTime] = useState(nowTime);
+
   const handleSubmit = async (e: React.FormEvent<HTMLFormElement>) => {
     e.preventDefault();
     setLoading(true);
@@ -183,7 +186,8 @@ export function LogCallModal({ bookingId, farmers = [], existingLogsCount = 0 }:
                   id={`call-date-${bookingId}`}
                   name="call_date"
                   type="date"
-                  defaultValue={todayStr}
+                  value={callDate}
+                  onChange={(e) => setCallDate(e.target.value)}
                   className="h-9 text-sm"
                   required
                 />
@@ -196,7 +200,8 @@ export function LogCallModal({ bookingId, farmers = [], existingLogsCount = 0 }:
                   id={`call-time-${bookingId}`}
                   name="call_time"
                   type="time"
-                  defaultValue={nowTime}
+                  value={callTime}
+                  onChange={(e) => setCallTime(e.target.value)}
                   className="h-9 text-sm"
                 />
               </div>
