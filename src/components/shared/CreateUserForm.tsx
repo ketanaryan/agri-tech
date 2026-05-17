@@ -99,7 +99,7 @@ export function CreateUserForm({
       {allowedRoles.length > 1 && (
         <div
           className={`grid gap-4 ${
-            showDistrictField && !fixedDistrict ? "grid-cols-2" : "grid-cols-1"
+            showDistrictField && !fixedDistrict ? "grid-cols-3" : "grid-cols-1"
           }`}
         >
           <div className="space-y-2">
@@ -124,14 +124,24 @@ export function CreateUserForm({
           </div>
 
           {showDistrictField && !fixedDistrict && (
-            <div className="space-y-2">
-              <Label htmlFor="cu-district">District (Optional)</Label>
-              <Input
-                id="cu-district"
-                name="district"
-                placeholder="e.g. Pune"
-              />
-            </div>
+            <>
+              <div className="space-y-2">
+                <Label htmlFor="cu-district">District</Label>
+                <Input
+                  id="cu-district"
+                  name="district"
+                  placeholder="e.g. Pune"
+                />
+              </div>
+              <div className="space-y-2">
+                <Label htmlFor="cu-taluka">Taluka</Label>
+                <Input
+                  id="cu-taluka"
+                  name="taluka"
+                  placeholder="e.g. Haveli"
+                />
+              </div>
+            </>
           )}
         </div>
       )}

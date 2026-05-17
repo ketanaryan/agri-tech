@@ -341,6 +341,7 @@ export default async function AdminPage() {
                 <TableHead>Name</TableHead>
                 <TableHead>Role</TableHead>
                 <TableHead>District</TableHead>
+                <TableHead>Taluka</TableHead>
                 <TableHead>Phone</TableHead>
                 <TableHead>Villages</TableHead>
                 <TableHead>Created</TableHead>
@@ -365,6 +366,7 @@ export default async function AdminPage() {
                     <span className="px-2 py-1 bg-green-100 text-green-800 text-xs rounded-full">{p.role}</span>
                   </TableCell>
                   <TableCell>{p.district || "—"}</TableCell>
+                  <TableCell>{p.taluka || "—"}</TableCell>
                   <TableCell>{p.phone}</TableCell>
                   <TableCell>
                     {p.role === "FieldOfficer" && (p.villages_covered || p.village_names) ? (

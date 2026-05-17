@@ -86,12 +86,19 @@ export default async function TelecallerPage({
 
   const { data: pendingBookings } = await query;
 
+  // Fetch all farmers for the telecaller modal dropdown
+  const { data: allFarmers } = await supabase
+    .from("farmers")
+    .select("id, name, unique_id")
+    .is("deleted_at", null)
+    .order("name");
+
   // Fetch call logs for the fetched bookings
   const bookingIds = pendingBookings?.map((b) => b.id) || [];
   const { data: allCallLogs } = bookingIds.length > 0
     ? await supabase
         .from("call_logs")
-        .select("id, booking_id, notes, created_at, pesticide_given, water_given, no_issue, forward_to")
+        .select("id, booking_id, notes, created_at, pesticide_given, water_given, no_issue, forward_to, telecaller_name, farmer_id, follow_up_number, call_date, call_time, call_duration_mins, call_response")
         .in("booking_id", bookingIds)
         .order("created_at", { ascending: false })
     : { data: [] };
@@ -233,7 +240,11 @@ export default async function TelecallerPage({
                           )}
                         </TableCell>
                         <TableCell>
-                          <LogCallModal bookingId={b.id} />
+                          <LogCallModal
+                            bookingId={b.id}
+                            farmers={allFarmers ?? []}
+                            existingLogsCount={logs.length}
+                          />
                         </TableCell>
                         <TableCell>
                           <form action={cancelBooking.bind(null, b.id) as () => void}>
@@ -265,11 +276,21 @@ export default async function TelecallerPage({
                                 {logs.map((log, i) => (
                                   <div key={i} className="flex flex-col gap-1 text-xs text-gray-600 bg-white p-2 rounded border">
                                     <div className="flex justify-between text-gray-400 mb-1 border-b pb-1">
-                                      <span>
-                                        {new Date(log.created_at).toLocaleDateString("en-IN", {
-                                          day: "numeric", month: "short", hour: "2-digit", minute: "2-digit"
-                                        })}
+                                      <span className="flex items-center gap-2">
+                                        {log.follow_up_number && (
+                                          <span className="bg-green-100 text-green-700 text-[10px] font-bold px-1.5 py-0.5 rounded">
+                                            F/U {log.follow_up_number}
+                                          </span>
+                                        )}
+                                        {log.call_date
+                                          ? new Date(log.call_date).toLocaleDateString("en-IN", { day: "numeric", month: "short" })
+                                          : new Date(log.created_at).toLocaleDateString("en-IN", { day: "numeric", month: "short" })}
+                                        {log.call_time && ` at ${log.call_time}`}
+                                        {log.call_duration_mins && ` (${log.call_duration_mins} min)`}
                                       </span>
+                                      {log.telecaller_name && (
+                                        <span className="text-gray-500 font-medium">by {log.telecaller_name}</span>
+                                      )}
                                     </div>
                                     <div className="grid grid-cols-2 gap-x-4 gap-y-1">
                                       <div><span className="font-semibold">Pesticide:</span> {log.pesticide_given ? "Yes" : "No"}</div>

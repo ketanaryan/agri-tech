@@ -33,6 +33,7 @@ export async function createUserAction(
   const phone = data.get("phone") as string;
   const role = data.get("role") as string;
   const district = (data.get("district") as string) || null;
+  const taluka = (data.get("taluka") as string) || null;
   const villages_covered = parseInt(data.get("villages_covered") as string) || 0;
   const village_names = (data.get("village_names") as string) || null;
 
@@ -97,6 +98,7 @@ export async function createUserAction(
     phone,
     role,
     district,
+    taluka,
     unique_id,
   };
 
