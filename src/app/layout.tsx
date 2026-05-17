@@ -1,7 +1,8 @@
-import type { Metadata } from "next";
+import type { Metadata, Viewport } from "next";
 import "./globals.css";
 import { Geist } from "next/font/google";
 import { cn } from "@/lib/utils";
+import { PWARegister } from "@/components/shared/PWARegister";
 
 const geist = Geist({ subsets: ["latin"], variable: "--font-sans" });
 
@@ -9,6 +10,23 @@ export const metadata: Metadata = {
   title: "AgriTech ERP — Agricultural Management Platform",
   description:
     "Manage your cooperative, track crops, register farmers, and empower field operations with AgriTech ERP.",
+  manifest: "/manifest.json",
+  appleWebApp: {
+    capable: true,
+    statusBarStyle: "default",
+    title: "AgriTech ERP",
+  },
+  other: {
+    "mobile-web-app-capable": "yes",
+  },
+};
+
+export const viewport: Viewport = {
+  themeColor: "#16a34a",
+  width: "device-width",
+  initialScale: 1,
+  maximumScale: 1,
+  userScalable: false,
 };
 
 import NextTopLoader from 'nextjs-toploader';
@@ -20,9 +38,14 @@ export default function RootLayout({
 }>) {
   return (
     <html lang="en" className={cn("font-sans", geist.variable)} suppressHydrationWarning>
+      <head>
+        <link rel="icon" href="/icon-512.png" />
+        <link rel="apple-touch-icon" href="/icon-512.png" />
+      </head>
       <body suppressHydrationWarning>
         <NextTopLoader color="#16a34a" showSpinner={false} />
         {children}
+        <PWARegister />
       </body>
     </html>
   );

@@ -1,10 +1,12 @@
 "use client";
 
+import { useState } from "react";
 import { useActionState } from "react";
 import { createUserAction } from "@/actions/admin";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import { Textarea } from "@/components/ui/textarea";
 import {
   Select,
   SelectContent,
@@ -12,7 +14,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
-import { CheckCircle2, AlertCircle, Loader2 } from "lucide-react";
+import { CheckCircle2, AlertCircle, Loader2, MapPin } from "lucide-react";
 
 interface RoleOption {
   value: string;
@@ -36,6 +38,7 @@ export function CreateUserForm({
   showDistrictField = true,
 }: CreateUserFormProps) {
   const [state, formAction, isPending] = useActionState(createUserAction, null);
+  const [selectedRole, setSelectedRole] = useState(defaultRole || allowedRoles[0]?.value || "");
 
   return (
     <form action={formAction} className="space-y-4">
@@ -104,6 +107,7 @@ export function CreateUserForm({
             <Select
               name="role"
               defaultValue={defaultRole || allowedRoles[0]?.value}
+              onValueChange={(val) => { if (val) setSelectedRole(val); }}
               required
             >
               <SelectTrigger id="cu-role">
@@ -129,6 +133,38 @@ export function CreateUserForm({
               />
             </div>
           )}
+        </div>
+      )}
+
+      {/* Village Coverage — shown only for Field Officers */}
+      {(selectedRole === "FieldOfficer" || (allowedRoles.length === 1 && allowedRoles[0].value === "FieldOfficer")) && (
+        <div className="border border-green-200 bg-green-50/50 rounded-xl p-4 space-y-4">
+          <div className="flex items-center gap-2 text-green-700 font-semibold text-sm">
+            <MapPin className="w-4 h-4" />
+            Village Coverage Details
+          </div>
+          <div className="grid grid-cols-2 gap-4">
+            <div className="space-y-2">
+              <Label htmlFor="cu-villages-covered">No. of Villages Covered</Label>
+              <Input
+                id="cu-villages-covered"
+                name="villages_covered"
+                type="number"
+                min="0"
+                placeholder="e.g. 5"
+              />
+            </div>
+            <div className="space-y-2 col-span-2">
+              <Label htmlFor="cu-village-names">Village Names</Label>
+              <Textarea
+                id="cu-village-names"
+                name="village_names"
+                placeholder="Enter village names separated by commas, e.g. Wadgaon, Kothrud, Baner"
+                rows={2}
+                className="resize-none"
+              />
+            </div>
+          </div>
         </div>
       )}
 

@@ -126,6 +126,7 @@ export default async function FarmersDirectoryPage({
                   <TableHead>PAN Card</TableHead>
                   <TableHead>Aadhar Card</TableHead>
                   <TableHead>Address</TableHead>
+                  <TableHead>Land</TableHead>
                   <TableHead>Registered</TableHead>
                 </TableRow>
               </TableHeader>
@@ -203,6 +204,20 @@ export default async function FarmersDirectoryPage({
                       {farmer.address || "N/A"}
                     </TableCell>
                     <TableCell>
+                      {farmer.land_size ? (
+                        <div className="space-y-0.5">
+                          <span className="inline-flex items-center gap-1 px-2 py-0.5 bg-amber-50 text-amber-700 text-xs font-semibold rounded-full border border-amber-100">
+                            🌾 {farmer.land_size} {farmer.land_unit || "acres"}
+                          </span>
+                          {farmer.land_type && (
+                            <p className="text-[10px] text-gray-500 capitalize">{farmer.land_type}</p>
+                          )}
+                        </div>
+                      ) : (
+                        <span className="text-gray-300 text-xs">—</span>
+                      )}
+                    </TableCell>
+                    <TableCell>
                       {new Date(farmer.created_at).toLocaleDateString()}
                     </TableCell>
                   </TableRow>
@@ -210,7 +225,7 @@ export default async function FarmersDirectoryPage({
                 {farmers?.length === 0 && (
                   <TableRow>
                     <TableCell
-                      colSpan={8}
+                      colSpan={9}
                       className="h-24 text-center text-gray-500"
                     >
                       {searchQuery

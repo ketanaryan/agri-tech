@@ -65,6 +65,9 @@ export function CreateBookingForm({ farmers, items, mode = "both" }: CreateBooki
   const [newFarmerPanCard, setNewFarmerPanCard] = useState("");
   const [newFarmerAadharCard, setNewFarmerAadharCard] = useState("");
   const [newFarmerAltPhone, setNewFarmerAltPhone] = useState("");
+  const [newFarmerLandSize, setNewFarmerLandSize] = useState("");
+  const [newFarmerLandUnit, setNewFarmerLandUnit] = useState("acres");
+  const [newFarmerLandType, setNewFarmerLandType] = useState("");
   
   // Photo Upload State
   const [photoPreview, setPhotoPreview] = useState<string | null>(null);
@@ -152,7 +155,10 @@ export function CreateBookingForm({ farmers, items, mode = "both" }: CreateBooki
           photo_url: photoUrl,
           pan_card: newFarmerPanCard,
           aadhar_card: newFarmerAadharCard,
-          alternate_phone: newFarmerAltPhone
+          alternate_phone: newFarmerAltPhone,
+          land_size: newFarmerLandSize ? parseFloat(newFarmerLandSize) : null,
+          land_unit: newFarmerLandUnit || "acres",
+          land_type: newFarmerLandType || null,
         } : undefined,
         itemId,
         qty,
@@ -262,6 +268,9 @@ export function CreateBookingForm({ farmers, items, mode = "both" }: CreateBooki
       setPhotoUrl("");
       setItemId("");
       setQtyStr("1");
+      setNewFarmerLandSize("");
+      setNewFarmerLandUnit("acres");
+      setNewFarmerLandType("");
     }
     setPaying(false);
   };
@@ -475,6 +484,50 @@ export function CreateBookingForm({ farmers, items, mode = "both" }: CreateBooki
                 maxLength={12}
                 inputMode="numeric"
               />
+            </div>
+
+            {/* Land Details Section */}
+            <div className="md:col-span-2 border-t pt-4 mt-2">
+              <h4 className="text-xs font-semibold text-gray-500 uppercase tracking-wider mb-3">🌾 Land Details</h4>
+              <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                <div className="space-y-2">
+                  <Label htmlFor="newFarmerLandSize">Land Size</Label>
+                  <Input
+                    id="newFarmerLandSize"
+                    value={newFarmerLandSize}
+                    onChange={(e) => setNewFarmerLandSize(e.target.value.replace(/[^0-9.]/g, ""))}
+                    placeholder="e.g. 2.5"
+                    inputMode="decimal"
+                  />
+                </div>
+                <div className="space-y-2">
+                  <Label htmlFor="newFarmerLandUnit">Unit</Label>
+                  <Select value={newFarmerLandUnit} onValueChange={(v) => { if (v) setNewFarmerLandUnit(v); }}>
+                    <SelectTrigger id="newFarmerLandUnit">
+                      <SelectValue placeholder="Select unit" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="acres">Acres</SelectItem>
+                      <SelectItem value="hectares">Hectares</SelectItem>
+                      <SelectItem value="bigha">Bigha</SelectItem>
+                      <SelectItem value="guntha">Guntha</SelectItem>
+                    </SelectContent>
+                  </Select>
+                </div>
+                <div className="space-y-2">
+                  <Label htmlFor="newFarmerLandType">Land Type</Label>
+                  <Select value={newFarmerLandType} onValueChange={(v) => { if (v) setNewFarmerLandType(v); }}>
+                    <SelectTrigger id="newFarmerLandType">
+                      <SelectValue placeholder="Select type" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="irrigated">Irrigated</SelectItem>
+                      <SelectItem value="rainfed">Rainfed (Non-irrigated)</SelectItem>
+                      <SelectItem value="mixed">Mixed</SelectItem>
+                    </SelectContent>
+                  </Select>
+                </div>
+              </div>
             </div>
 
             {/* Photo Upload */}

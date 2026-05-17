@@ -107,6 +107,9 @@ export async function POST(req: NextRequest) {
           pan_card: newFarmerData.pan_card || null,
           aadhar_card: newFarmerData.aadhar_card || null,
           alternate_phone: newFarmerData.alternate_phone || null,
+          land_size: newFarmerData.land_size || null,
+          land_unit: newFarmerData.land_unit || "acres",
+          land_type: newFarmerData.land_type || null,
           unique_id: generated_unique_id,
           district,
         })

@@ -165,6 +165,20 @@ export default async function FarmerProfilePage({
                   )}
                 </div>
               )}
+
+              {/* Land Details */}
+              {farmer.land_size && (
+                <div className="mt-3 flex flex-wrap gap-3">
+                  <span className="inline-flex items-center gap-1.5 bg-amber-50 text-amber-800 text-xs font-medium px-3 py-1.5 rounded-lg border border-amber-200">
+                    🌾 Land: <span className="font-semibold">{farmer.land_size} {farmer.land_unit || "acres"}</span>
+                  </span>
+                  {farmer.land_type && (
+                    <span className="inline-flex items-center gap-1.5 bg-green-50 text-green-800 text-xs font-medium px-3 py-1.5 rounded-lg border border-green-200">
+                      🚿 Type: <span className="font-semibold capitalize">{farmer.land_type}</span>
+                    </span>
+                  )}
+                </div>
+              )}
             </div>
           </div>
         </CardContent>

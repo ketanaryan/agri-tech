@@ -69,7 +69,7 @@ export default function LoginPage() {
               AgriTech ERP
             </CardTitle>
             <CardDescription className="mt-1 text-sm text-gray-500">
-              Sign in to access your portal
+              Sign in with your User ID or Email
             </CardDescription>
           </div>
         </CardHeader>
@@ -82,12 +82,12 @@ export default function LoginPage() {
                 name="email"
                 render={({ field }) => (
                   <FormItem>
-                    <FormLabel>Email address</FormLabel>
+                    <FormLabel>User ID or Email</FormLabel>
                     <FormControl>
                       <Input
-                        placeholder="you@example.com"
-                        type="email"
-                        autoComplete="email"
+                        placeholder="BPFO1234 or you@example.com"
+                        type="text"
+                        autoComplete="username"
                         disabled={isPending}
                         {...field}
                       />
@@ -102,7 +102,7 @@ export default function LoginPage() {
                 name="password"
                 render={({ field }) => (
                   <FormItem>
-                    <FormLabel>password</FormLabel>
+                    <FormLabel>Password</FormLabel>
                     <FormControl>
                       <Input
                         type="password"

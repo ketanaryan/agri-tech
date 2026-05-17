@@ -29,6 +29,10 @@ export async function registerFarmer(data: FormData) {
   const pan_card = data.get("pan_card") as string | null;
   const aadhar_card = data.get("aadhar_card") as string | null;
   const alternate_phone = data.get("alternate_phone") as string | null;
+  const land_size_raw = data.get("land_size") as string | null;
+  const land_size = land_size_raw ? parseFloat(land_size_raw) : null;
+  const land_unit = (data.get("land_unit") as string) || "acres";
+  const land_type = (data.get("land_type") as string) || null;
 
   if (!name || !phone) return { error: "Name and phone are required." };
 
@@ -67,6 +71,9 @@ export async function registerFarmer(data: FormData) {
       pan_card: pan_card || null,
       aadhar_card: aadhar_card || null,
       alternate_phone: alternate_phone || null,
+      land_size: land_size || null,
+      land_unit,
+      land_type,
       unique_id,
       district,
     })

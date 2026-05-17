@@ -14,7 +14,7 @@ import {
   TableRow,
 } from "@/components/ui/table";
 import { redirect } from "next/navigation";
-import { Users, AlertCircle, IndianRupee, Tractor, FlaskConical, AlertTriangle } from "lucide-react";
+import { Users, AlertCircle, IndianRupee, Tractor, FlaskConical, AlertTriangle, MapPin } from "lucide-react";
 import { CreateUserForm } from "@/components/shared/CreateUserForm";
 
 export default async function AdminPage() {
@@ -342,6 +342,7 @@ export default async function AdminPage() {
                 <TableHead>Role</TableHead>
                 <TableHead>District</TableHead>
                 <TableHead>Phone</TableHead>
+                <TableHead>Villages</TableHead>
                 <TableHead>Created</TableHead>
               </TableRow>
             </TableHeader>
@@ -365,6 +366,25 @@ export default async function AdminPage() {
                   </TableCell>
                   <TableCell>{p.district || "—"}</TableCell>
                   <TableCell>{p.phone}</TableCell>
+                  <TableCell>
+                    {p.role === "FieldOfficer" && (p.villages_covered || p.village_names) ? (
+                      <div className="space-y-0.5">
+                        {p.villages_covered ? (
+                          <span className="inline-flex items-center gap-1 px-2 py-0.5 bg-blue-50 text-blue-700 text-xs font-semibold rounded-full border border-blue-100">
+                            <MapPin className="w-3 h-3" />
+                            {p.villages_covered} village{p.villages_covered > 1 ? "s" : ""}
+                          </span>
+                        ) : null}
+                        {p.village_names ? (
+                          <p className="text-[10px] text-gray-500 leading-tight max-w-[180px] truncate" title={p.village_names}>
+                            {p.village_names}
+                          </p>
+                        ) : null}
+                      </div>
+                    ) : (
+                      <span className="text-gray-300 text-xs">—</span>
+                    )}
+                  </TableCell>
                   <TableCell>{new Date(p.created_at).toLocaleDateString()}</TableCell>
                 </TableRow>
               ))}

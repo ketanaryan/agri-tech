@@ -33,6 +33,8 @@ export async function createUserAction(
   const phone = data.get("phone") as string;
   const role = data.get("role") as string;
   const district = (data.get("district") as string) || null;
+  const villages_covered = parseInt(data.get("villages_covered") as string) || 0;
+  const village_names = (data.get("village_names") as string) || null;
 
   if (!email || !password || !name || !role) {
     return { error: "All fields are required." };
@@ -89,9 +91,24 @@ export async function createUserAction(
   if (authError || !newUser.user)
     return { error: authError?.message || "Failed to create auth user." };
 
+  const profileData: Record<string, any> = {
+    id: newUser.user.id,
+    name,
+    phone,
+    role,
+    district,
+    unique_id,
+  };
+
+  // Add village coverage for Field Officers
+  if (role === "FieldOfficer") {
+    profileData.villages_covered = villages_covered;
+    profileData.village_names = village_names;
+  }
+
   const { error: profileError } = await supabaseAdmin
     .from("profiles")
-    .insert({ id: newUser.user.id, name, phone, role, district, unique_id });
+    .insert(profileData);
 
   if (profileError) {
     await supabaseAdmin.auth.admin.deleteUser(newUser.user.id);

@@ -1,0 +1,20 @@
+{
+  "name": "AgriTech ERP",
+  "short_name": "AgriTech",
+  "description": "Agricultural Management Platform — Manage farmers, bookings, and field operations.",
+  "start_url": "/",
+  "display": "standalone",
+  "background_color": "#ffffff",
+  "theme_color": "#16a34a",
+  "orientation": "portrait-primary",
+  "icons": [
+    {
+      "src": "/icon-512.png",
+      "sizes": "512x512",
+      "type": "image/png",
+      "purpose": "any maskable"
+    }
+  ],
+  "categories": ["business", "productivity"],
+  "screenshots": []
+}
