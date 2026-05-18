@@ -101,13 +101,12 @@ export function Sidebar({ role }: SidebarProps) {
       >
         {/* Logo area */}
         <div className="h-16 flex items-center justify-between px-5 border-b border-green-100">
-          <div className="flex items-center gap-2.5">
-            <div className="bg-green-600 rounded-lg p-1.5">
-              <Leaf className="w-4 h-4 text-white" />
-            </div>
-            <span className="text-lg font-bold text-green-800 tracking-tight">
-              AgriTech ERP
-            </span>
+          <div className="flex items-center gap-2">
+            <img 
+              src="/logo.png" 
+              alt="BEP Logo" 
+              className="h-10 w-auto object-contain mix-blend-multiply" 
+            />
           </div>
           <button
             onClick={() => setIsOpen(false)}

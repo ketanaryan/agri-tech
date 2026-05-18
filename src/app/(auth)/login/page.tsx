@@ -60,9 +60,11 @@ export default function LoginPage() {
       <Card className="w-full max-w-md shadow-xl border-green-100 relative z-10">
         <CardHeader className="space-y-3 text-center pb-4">
           <div className="flex justify-center">
-            <div className="bg-green-600 p-3.5 rounded-2xl shadow-md">
-              <Leaf className="w-8 h-8 text-white" />
-            </div>
+            <img 
+              src="/logo.png" 
+              alt="BEP Logo" 
+              className="h-20 w-auto object-contain mix-blend-multiply" 
+            />
           </div>
           <div>
             <CardTitle className="text-2xl font-bold tracking-tight text-green-900">
