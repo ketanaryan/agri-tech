@@ -33,36 +33,20 @@ export default async function CounselorDashboard() {
     redirect("/"); // redirect unauthorized users
   }
 
-  // Fetch lists
-  const { data: profiles } = await supabase.from("profiles").select("*").is("deleted_at", null).order("created_at", { ascending: false });
-  const { data: items } = await supabase.from("items").select("*").is("deleted_at", null).order("name");
+  // Fetch lists for analytics
+  const { data: profiles } = await supabase.from("profiles").select("role").is("deleted_at", null);
   
   // Analytics
   const { count: globalFarmersCount } = await supabase.from("farmers").select("*", { count: "exact", head: true }).is("deleted_at", null);
-  const { data: globalBookings } = await supabase.from("bookings").select("status").is("deleted_at", null);
   
-  const globalPendingCount = globalBookings?.filter(b => b.status === "Pending").length || 0;
   const totalOfficers = profiles?.filter(p => p.role === "FieldOfficer").length || 0;
-
-  const adminClient = createAdminClient();
-  const { data: plantReports } = await adminClient
-    .from("plant_reports")
-    .select("*")
-    .order("created_at", { ascending: false });
-
-  const farmerIds = plantReports?.map(r => r.farmer_id) || [];
-  const { data: farmers } = await adminClient
-    .from("farmers")
-    .select("unique_id, name, phone")
-    .in("unique_id", farmerIds);
-  const farmerMap = new Map(farmers?.map(f => [f.unique_id, f]));
 
   return (
     <div className="space-y-6">
       <h1 className="text-2xl font-bold">Counselor Portal</h1>
       
       {/* Global Analytics Overview */}
-      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+      <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
         <Card>
           <CardHeader className="flex flex-row items-center justify-between pb-2">
             <CardTitle className="text-sm font-medium text-gray-500">Total Registered Farmers</CardTitle>
@@ -71,17 +55,6 @@ export default async function CounselorDashboard() {
           <CardContent>
             <div className="text-2xl font-bold">{globalFarmersCount || 0}</div>
             <p className="text-xs text-gray-500 mt-1">Across all field officers</p>
-          </CardContent>
-        </Card>
-
-        <Card>
-          <CardHeader className="flex flex-row items-center justify-between pb-2">
-            <CardTitle className="text-sm font-medium text-gray-500">Global Pending Bookings</CardTitle>
-            <AlertCircle className="w-4 h-4 text-orange-500" />
-          </CardHeader>
-          <CardContent>
-            <div className="text-2xl font-bold">{globalPendingCount}</div>
-            <p className="text-xs text-gray-500 mt-1">Requiring action/payment</p>
           </CardContent>
         </Card>
 
@@ -96,186 +69,6 @@ export default async function CounselorDashboard() {
           </CardContent>
         </Card>
       </div>
-
-      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-        {/* Item Management */}
-        <Card>
-          <CardHeader>
-            <CardTitle>Manage Catalog Items</CardTitle>
-          </CardHeader>
-          <CardContent className="space-y-6">
-            <form action={createItem as (data: FormData) => void} className="flex gap-4 items-end flex-wrap">
-              <div className="space-y-2 flex-1 min-w-[150px]">
-                <Label htmlFor="itemName">Item Name</Label>
-                <Input id="itemName" name="name" placeholder="e.g. Fertilizer X" required />
-              </div>
-              <div className="space-y-2 w-28">
-                <Label htmlFor="rate">Rate (₹)</Label>
-                <Input id="rate" name="rate_per_unit" type="number" step="0.01" required />
-              </div>
-              <div className="space-y-2 w-28">
-                <Label htmlFor="advance_percentage">Adv. %</Label>
-                <Input id="advance_percentage" name="advance_percentage" type="number" step="0.01" defaultValue="10.00" required />
-              </div>
-              <Button type="submit" className="bg-green-700 hover:bg-green-800">Add Item</Button>
-            </form>
-
-            <div className="border rounded-md">
-              <Table>
-                <TableHeader>
-                  <TableRow>
-                    <TableHead>Item Name</TableHead>
-                    <TableHead>Rate</TableHead>
-                    <TableHead className="w-[100px]">Action</TableHead>
-                  </TableRow>
-                </TableHeader>
-                <TableBody>
-                  {items?.map((item) => (
-                    <TableRow key={item.id}>
-                      <TableCell>{item.name}</TableCell>
-                      <TableCell>₹{item.rate_per_unit}</TableCell>
-                      <TableCell>
-                        <form action={deleteItem.bind(null, item.id) as () => void}>
-                          <Button variant="ghost" size="sm" type="submit" className="text-red-500 hover:text-red-700">Delete</Button>
-                        </form>
-                      </TableCell>
-                    </TableRow>
-                  ))}
-                  {items?.length === 0 && (
-                    <TableRow>
-                      <TableCell colSpan={3} className="text-center text-gray-500">No items found.</TableCell>
-                    </TableRow>
-                  )}
-                </TableBody>
-              </Table>
-            </div>
-          </CardContent>
-        </Card>
-      </div>
-
-      <Card>
-        <CardHeader>
-          <CardTitle>System Users</CardTitle>
-        </CardHeader>
-        <CardContent>
-          <Table>
-            <TableHeader>
-              <TableRow>
-                <TableHead>User ID</TableHead>
-                <TableHead>Name</TableHead>
-                <TableHead>Role</TableHead>
-                <TableHead>District</TableHead>
-                <TableHead>Phone</TableHead>
-                <TableHead>Created</TableHead>
-              </TableRow>
-            </TableHeader>
-            <TableBody>
-              {profiles?.map((p) => (
-                <TableRow key={p.id}>
-                  <TableCell className="font-mono text-xs">
-                    {p.unique_id ? (
-                      <span className="text-green-700">{p.unique_id}</span>
-                    ) : p.role === "Admin" ? (
-                      <span className="px-2 py-0.5 bg-purple-100 text-purple-700 text-[10px] rounded-full font-semibold uppercase tracking-wider">
-                        Admin
-                      </span>
-                    ) : (
-                      <span className="text-gray-400">—</span>
-                    )}
-                  </TableCell>
-                  <TableCell className="font-medium">{p.name}</TableCell>
-                  <TableCell>
-                    <span className="px-2 py-1 bg-green-100 text-green-800 text-xs rounded-full">
-                      {p.role}
-                    </span>
-                  </TableCell>
-                  <TableCell>{p.district || "—"}</TableCell>
-                  <TableCell>{p.phone}</TableCell>
-                  <TableCell>{new Date(p.created_at).toLocaleDateString()}</TableCell>
-                </TableRow>
-              ))}
-            </TableBody>
-          </Table>
-        </CardContent>
-      </Card>
-
-      <Card>
-        <CardHeader>
-          <CardTitle>Recent Plant Reports</CardTitle>
-        </CardHeader>
-        <CardContent>
-          <Table>
-            <TableHeader>
-              <TableRow>
-                <TableHead>Date</TableHead>
-                <TableHead>Farmer ID</TableHead>
-                <TableHead>Status</TableHead>
-                <TableHead>Pesticide</TableHead>
-                <TableHead>Remarks</TableHead>
-                <TableHead>Photos</TableHead>
-              </TableRow>
-            </TableHeader>
-            <TableBody>
-              {plantReports?.map((report) => {
-                const farmer = farmerMap.get(report.farmer_id);
-                return (
-                  <TableRow key={report.id}>
-                    <TableCell>{new Date(report.created_at).toLocaleDateString()}</TableCell>
-                    <TableCell>
-                      <div className="font-mono text-xs text-green-700 font-semibold">{report.farmer_id}</div>
-                      {farmer && (
-                        <div className="text-xs text-gray-500 mt-1">
-                          <div>{farmer.name}</div>
-                          <div>{farmer.phone}</div>
-                        </div>
-                      )}
-                    </TableCell>
-                    <TableCell>
-                      <span className="px-2 py-1 bg-green-50 text-green-700 text-xs rounded-full border border-green-200">
-                        {report.status}
-                      </span>
-                    </TableCell>
-                  <TableCell>
-                    {report.pesticide_given ? (
-                      <span className="text-red-600 font-medium text-xs">Yes</span>
-                    ) : (
-                      <span className="text-green-600 font-medium text-xs">No</span>
-                    )}
-                  </TableCell>
-                  <TableCell className="max-w-[200px] truncate" title={report.remarks || ""}>
-                    {report.remarks || "—"}
-                  </TableCell>
-                  <TableCell>
-                    {report.photos && report.photos.length > 0 ? (
-                      <div className="flex flex-wrap gap-2">
-                        {report.photos.map((photo: string, i: number) => {
-                          const publicUrl = photo.startsWith("http") 
-                            ? photo 
-                            : supabase.storage.from("plant-reports").getPublicUrl(photo).data.publicUrl;
-                          
-                          return (
-                            <a key={i} href={publicUrl} target="_blank" rel="noreferrer" className="text-blue-600 hover:underline text-xs bg-blue-50 px-2 py-1 rounded">
-                              View Photo {i + 1}
-                            </a>
-                          );
-                        })}
-                      </div>
-                    ) : (
-                      <span className="text-gray-400 text-xs">No photos</span>
-                    )}
-                    </TableCell>
-                  </TableRow>
-                );
-              })}
-              {(!plantReports || plantReports.length === 0) && (
-                <TableRow>
-                  <TableCell colSpan={6} className="text-center text-gray-500 py-4">No plant reports found.</TableCell>
-                </TableRow>
-              )}
-            </TableBody>
-          </Table>
-        </CardContent>
-      </Card>
     </div>
   );
 }
