@@ -249,7 +249,10 @@ export default async function CounselorDashboard() {
                     {report.photos && report.photos.length > 0 ? (
                       <div className="flex flex-wrap gap-2">
                         {report.photos.map((photo: string, i: number) => {
-                          const { data: { publicUrl } } = supabase.storage.from("plant-reports").getPublicUrl(photo);
+                          const publicUrl = photo.startsWith("http") 
+                            ? photo 
+                            : supabase.storage.from("plant-reports").getPublicUrl(photo).data.publicUrl;
+                          
                           return (
                             <a key={i} href={publicUrl} target="_blank" rel="noreferrer" className="text-blue-600 hover:underline text-xs bg-blue-50 px-2 py-1 rounded">
                               View Photo {i + 1}
