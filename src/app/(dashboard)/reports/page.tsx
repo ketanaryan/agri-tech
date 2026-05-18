@@ -30,7 +30,7 @@ export default async function ReportsPage() {
   const role = profile?.role;
   const district = profile?.district;
 
-  const allowedRoles = ["Admin", "FieldOfficer", "Leader", "Counselor"];
+  const allowedRoles = ["Admin", "FieldOfficer", "Leader"];
   if (!role || !allowedRoles.includes(role)) redirect("/");
 
   const isOfficer = role === "FieldOfficer";
