@@ -53,6 +53,8 @@ export default async function PlantReportsDashboard() {
               <TableRow>
                 <TableHead>Date</TableHead>
                 <TableHead>Farmer ID</TableHead>
+                <TableHead>Crop Info</TableHead>
+                <TableHead>Irrigation</TableHead>
                 <TableHead>Status</TableHead>
                 <TableHead>Pesticide</TableHead>
                 <TableHead>Remarks</TableHead>
@@ -75,6 +77,21 @@ export default async function PlantReportsDashboard() {
                       )}
                     </TableCell>
                     <TableCell>
+                      <div className="text-xs space-y-1">
+                        {report.crop_type && <div><span className="font-semibold text-green-700">Type:</span> {report.crop_type}</div>}
+                        {report.growth_stage && <div><span className="font-semibold text-green-700">Stage:</span> {report.growth_stage}</div>}
+                        {report.health_status && <div><span className="font-semibold text-green-700">Health:</span> {report.health_status}</div>}
+                        {(!report.crop_type && !report.growth_stage && !report.health_status) && <span className="text-gray-400">—</span>}
+                      </div>
+                    </TableCell>
+                    <TableCell>
+                      <div className="text-xs space-y-1">
+                        {report.irrigation_status && <div><span className="font-semibold text-blue-700">Status:</span> {report.irrigation_status}</div>}
+                        {report.irrigation_source && <div><span className="font-semibold text-blue-700">Source:</span> {report.irrigation_source}</div>}
+                        {(!report.irrigation_status && !report.irrigation_source) && <span className="text-gray-400">—</span>}
+                      </div>
+                    </TableCell>
+                    <TableCell>
                       <span className="px-2 py-1 bg-green-50 text-green-700 text-xs rounded-full border border-green-200">
                         {report.status}
                       </span>
@@ -86,7 +103,7 @@ export default async function PlantReportsDashboard() {
                       <span className="text-green-600 font-medium text-xs">No</span>
                     )}
                   </TableCell>
-                  <TableCell className="max-w-[200px] truncate" title={report.remarks || ""}>
+                  <TableCell className="max-w-[150px] truncate" title={report.remarks || ""}>
                     {report.remarks || "—"}
                   </TableCell>
                   <TableCell>

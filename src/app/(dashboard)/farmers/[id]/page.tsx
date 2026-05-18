@@ -173,8 +173,39 @@ export default async function FarmerProfilePage({
                     🌾 Land: <span className="font-semibold">{farmer.land_size} {farmer.land_unit || "acres"}</span>
                   </span>
                   {farmer.land_type && (
-                    <span className="inline-flex items-center gap-1.5 bg-green-50 text-green-800 text-xs font-medium px-3 py-1.5 rounded-lg border border-green-200">
+                    <span className="inline-flex items-center gap-1.5 bg-emerald-50 text-emerald-800 text-xs font-medium px-3 py-1.5 rounded-lg border border-emerald-200">
                       🚿 Type: <span className="font-semibold capitalize">{farmer.land_type}</span>
+                    </span>
+                  )}
+                </div>
+              )}
+
+              {/* Crop & Irrigation Details */}
+              {(farmer.crop_type || farmer.growth_stage || farmer.health_status || farmer.irrigation_status || farmer.irrigation_source) && (
+                <div className="mt-3 flex flex-wrap gap-3">
+                  {farmer.crop_type && (
+                    <span className="inline-flex items-center gap-1.5 bg-lime-50 text-lime-800 text-xs font-medium px-3 py-1.5 rounded-lg border border-lime-200">
+                      🌱 Crop: <span className="font-semibold">{farmer.crop_type}</span>
+                    </span>
+                  )}
+                  {farmer.growth_stage && (
+                    <span className="inline-flex items-center gap-1.5 bg-teal-50 text-teal-800 text-xs font-medium px-3 py-1.5 rounded-lg border border-teal-200">
+                      📈 Stage: <span className="font-semibold">{farmer.growth_stage}</span>
+                    </span>
+                  )}
+                  {farmer.health_status && (
+                    <span className={`inline-flex items-center gap-1.5 text-xs font-medium px-3 py-1.5 rounded-lg border ${farmer.health_status === 'Good' ? 'bg-green-50 text-green-800 border-green-200' : farmer.health_status === 'Fair' ? 'bg-yellow-50 text-yellow-800 border-yellow-200' : 'bg-red-50 text-red-800 border-red-200'}`}>
+                      {farmer.health_status === 'Good' ? '✅' : farmer.health_status === 'Fair' ? '⚠️' : '🚨'} Health: <span className="font-semibold">{farmer.health_status}</span>
+                    </span>
+                  )}
+                  {farmer.irrigation_status && (
+                    <span className={`inline-flex items-center gap-1.5 text-xs font-medium px-3 py-1.5 rounded-lg border ${farmer.irrigation_status === 'Adequate' ? 'bg-blue-50 text-blue-800 border-blue-200' : farmer.irrigation_status === 'Deficit' ? 'bg-orange-50 text-orange-800 border-orange-200' : 'bg-cyan-50 text-cyan-800 border-cyan-200'}`}>
+                      {farmer.irrigation_status === 'Adequate' ? '💧' : farmer.irrigation_status === 'Deficit' ? '🏜️' : '🌊'} Water: <span className="font-semibold">{farmer.irrigation_status}</span>
+                    </span>
+                  )}
+                  {farmer.irrigation_source && (
+                    <span className="inline-flex items-center gap-1.5 bg-indigo-50 text-indigo-800 text-xs font-medium px-3 py-1.5 rounded-lg border border-indigo-200">
+                      🚰 Source: <span className="font-semibold">{farmer.irrigation_source}</span>
                     </span>
                   )}
                 </div>

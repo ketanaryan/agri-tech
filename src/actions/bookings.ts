@@ -34,6 +34,12 @@ export async function registerFarmer(data: FormData) {
   const land_unit = (data.get("land_unit") as string) || "acres";
   const land_type = (data.get("land_type") as string) || null;
 
+  const crop_type = data.get("crop_type") as string | null;
+  const growth_stage = data.get("growth_stage") as string | null;
+  const health_status = data.get("health_status") as string | null;
+  const irrigation_status = data.get("irrigation_status") as string | null;
+  const irrigation_source = data.get("irrigation_source") as string | null;
+
   if (!name || !phone) return { error: "Name and phone are required." };
 
   // Phone validation (server-side)
@@ -74,6 +80,11 @@ export async function registerFarmer(data: FormData) {
       land_size: land_size || null,
       land_unit,
       land_type,
+      crop_type: crop_type || null,
+      growth_stage: growth_stage || null,
+      health_status: health_status || null,
+      irrigation_status: irrigation_status || null,
+      irrigation_source: irrigation_source || null,
       unique_id,
       district,
     })

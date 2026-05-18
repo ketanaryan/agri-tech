@@ -146,6 +146,76 @@ export function RegisterFarmerForm() {
         />
       </div>
 
+      <div className="pt-4 border-t border-gray-100">
+        <h3 className="text-sm font-bold text-green-800 uppercase tracking-wider mb-4">Crop Information</h3>
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-4">
+          <div className="space-y-2">
+            <Label htmlFor="crop_type">Crop Type</Label>
+            <Input id="crop_type" name="crop_type" placeholder="e.g. Wheat, Cotton, Sugarcane" />
+          </div>
+          <div className="space-y-2">
+            <Label htmlFor="growth_stage">Growth Stage</Label>
+            <select
+              id="growth_stage"
+              name="growth_stage"
+              className="flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50"
+            >
+              <option value="">Select stage</option>
+              <option value="Seedling">Seedling</option>
+              <option value="Vegetative">Vegetative</option>
+              <option value="Flowering">Flowering</option>
+              <option value="Fruiting">Fruiting</option>
+              <option value="Mature/Harvest">Mature / Harvest</option>
+            </select>
+          </div>
+        </div>
+
+        <div className="space-y-2 mb-6">
+          <Label>Overall Health Status</Label>
+          <div className="flex flex-wrap gap-4 pt-1">
+            <label className="flex items-center space-x-2 border rounded-lg px-4 py-2 cursor-pointer hover:bg-green-50 has-[:checked]:bg-green-50 has-[:checked]:border-green-600 transition-colors">
+              <input type="radio" name="health_status" value="Good" className="text-green-600 focus:ring-green-600" />
+              <span className="text-sm font-medium">✅ Good</span>
+            </label>
+            <label className="flex items-center space-x-2 border rounded-lg px-4 py-2 cursor-pointer hover:bg-yellow-50 has-[:checked]:bg-yellow-50 has-[:checked]:border-yellow-500 transition-colors">
+              <input type="radio" name="health_status" value="Fair" className="text-yellow-600 focus:ring-yellow-500" />
+              <span className="text-sm font-medium">⚠️ Fair</span>
+            </label>
+            <label className="flex items-center space-x-2 border rounded-lg px-4 py-2 cursor-pointer hover:bg-red-50 has-[:checked]:bg-red-50 has-[:checked]:border-red-600 transition-colors">
+              <input type="radio" name="health_status" value="Poor" className="text-red-600 focus:ring-red-600" />
+              <span className="text-sm font-medium">🚨 Poor</span>
+            </label>
+          </div>
+        </div>
+      </div>
+
+      <div className="pt-4 border-t border-gray-100">
+        <h3 className="text-sm font-bold text-blue-800 uppercase tracking-wider mb-4">Irrigation Status</h3>
+        
+        <div className="space-y-2 mb-4">
+          <Label>Current Irrigation Status</Label>
+          <div className="flex flex-wrap gap-4 pt-1">
+            <label className="flex items-center space-x-2 border rounded-lg px-4 py-2 cursor-pointer hover:bg-blue-50 has-[:checked]:bg-blue-50 has-[:checked]:border-blue-600 transition-colors">
+              <input type="radio" name="irrigation_status" value="Adequate" className="text-blue-600 focus:ring-blue-600" />
+              <span className="text-sm font-medium">💧 Adequate</span>
+            </label>
+            <label className="flex items-center space-x-2 border rounded-lg px-4 py-2 cursor-pointer hover:bg-orange-50 has-[:checked]:bg-orange-50 has-[:checked]:border-orange-500 transition-colors">
+              <input type="radio" name="irrigation_status" value="Deficit" className="text-orange-600 focus:ring-orange-500" />
+              <span className="text-sm font-medium">🏜️ Deficit</span>
+            </label>
+            <label className="flex items-center space-x-2 border rounded-lg px-4 py-2 cursor-pointer hover:bg-cyan-50 has-[:checked]:bg-cyan-50 has-[:checked]:border-cyan-500 transition-colors">
+              <input type="radio" name="irrigation_status" value="Excess" className="text-cyan-600 focus:ring-cyan-500" />
+              <span className="text-sm font-medium">🌊 Excess</span>
+            </label>
+          </div>
+        </div>
+
+        <div className="space-y-2 mb-4">
+          <Label htmlFor="irrigation_source">Irrigation Source</Label>
+          <Input id="irrigation_source" name="irrigation_source" placeholder="e.g. Borewell, Canal, Rainfed" />
+        </div>
+      </div>
+
       {/* Photo Upload */}
       <div className="space-y-2">
         <Label>Farmer Photo</Label>

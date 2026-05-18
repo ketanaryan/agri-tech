@@ -45,6 +45,12 @@ export async function submitPlantReport(formData: FormData) {
     }
   }
 
+  const crop_type = formData.get("crop_type")?.toString();
+  const growth_stage = formData.get("growth_stage")?.toString();
+  const health_status = formData.get("health_status")?.toString();
+  const irrigation_status = formData.get("irrigation_status")?.toString();
+  const irrigation_source = formData.get("irrigation_source")?.toString();
+
   // Verify farmer exists
   const { data: farmer, error: farmerError } = await supabase
     .from("farmers")
@@ -68,6 +74,11 @@ export async function submitPlantReport(formData: FormData) {
         remarks: remarks || null,
         photos: photos,
         created_by: user.id,
+        crop_type: crop_type || null,
+        growth_stage: growth_stage || null,
+        health_status: health_status || null,
+        irrigation_status: irrigation_status || null,
+        irrigation_source: irrigation_source || null,
       },
     ])
     .select()
