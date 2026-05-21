@@ -76,7 +76,11 @@ export default async function TelecallerPage({
 
   // Add search by Farmer ID or Name
   if (searchQuery) {
-    query = query.or(`unique_id.ilike.%${searchQuery}%,name.ilike.%${searchQuery}%`, { referencedTable: 'farmers' });
+    // Sanitize to prevent PostgREST filter injection
+    const safe = searchQuery.replace(/[%_(),.\\\"']/g, "").slice(0, 100);
+    if (safe) {
+      query = query.or(`unique_id.ilike.%${safe}%,name.ilike.%${safe}%`, { referencedTable: 'farmers' });
+    }
   }
 
   // Add status filter

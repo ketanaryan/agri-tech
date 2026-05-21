@@ -119,7 +119,7 @@ export default async function BookingsPage() {
       </div>
 
       <div className="max-w-xl">
-        {/* Create Booking & Farmer Form — Razorpay-integrated client component */}
+        {/* Create Booking & Farmer Form — Cashfree-integrated client component */}
         <Card>
           <CardHeader>
             <CardTitle>Create Booking</CardTitle>

@@ -66,9 +66,13 @@ export default async function FarmersDirectoryPage({
 
   // Apply text search filter (name OR unique_id)
   if (searchQuery) {
-    query = query.or(
-      `name.ilike.%${searchQuery}%,unique_id.ilike.%${searchQuery}%`
-    );
+    // Sanitize to prevent PostgREST filter injection
+    const safe = searchQuery.replace(/[%_(),.\\"']/g, "").slice(0, 100);
+    if (safe) {
+      query = query.or(
+        `name.ilike.%${safe}%,unique_id.ilike.%${safe}%`
+      );
+    }
   }
 
   const { data: farmers } = await query;

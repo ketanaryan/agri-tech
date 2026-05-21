@@ -45,6 +45,12 @@ export async function createUserAction(
     return { error: "Phone number must be exactly 10 digits." };
   }
 
+  // Input length limits
+  if (name.length > 200) return { error: "Name is too long (max 200 chars)." };
+  if (email.length > 254) return { error: "Email is too long." };
+  if (password.length > 128) return { error: "Password is too long (max 128 chars)." };
+  if (password.length < 6) return { error: "Password must be at least 6 characters." };
+
   // Identify the caller
   const { createClient } = await import("@/lib/supabase/server");
   const supabase = await createClient();

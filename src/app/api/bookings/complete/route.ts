@@ -2,8 +2,8 @@ import { NextRequest, NextResponse } from "next/server";
 import { createClient } from "@/lib/supabase/server";
 import { createAdminClient } from "@/lib/supabase/admin";
 import crypto from "crypto";
-import Razorpay from "razorpay";
 import { revalidatePath } from "next/cache";
+import { logTransaction } from "@/lib/transaction-logger";
 
 export async function POST(req: NextRequest) {
   try {
@@ -19,7 +19,7 @@ export async function POST(req: NextRequest) {
 
     const { data: profile } = await supabase
       .from("profiles")
-      .select("role")
+      .select("role, name")
       .eq("id", user.id)
       .single();
 
@@ -30,10 +30,7 @@ export async function POST(req: NextRequest) {
     const body = await req.json();
     const {
       bookingId,
-      paymentMethod = "online",
-      razorpay_order_id,
-      razorpay_payment_id,
-      razorpay_signature,
+      paymentMethod = "qr",
     } = body;
 
     if (!bookingId) {
@@ -43,7 +40,7 @@ export async function POST(req: NextRequest) {
     // Fetch booking to verify the balance amount securely on backend
     const { data: booking, error: bookingErr } = await supabase
       .from("bookings")
-      .select("balance_amount")
+      .select("balance_amount, farmer_id, item_id, total_amount")
       .eq("id", bookingId)
       .single();
 
@@ -51,40 +48,12 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ error: "Booking not found" }, { status: 404 });
     }
 
-    // For online payments: verify Razorpay signature and amount
-    if (paymentMethod === "online") {
-      if (!razorpay_order_id || !razorpay_payment_id || !razorpay_signature) {
-        return NextResponse.json({ error: "Missing Razorpay payment details" }, { status: 400 });
-      }
-      const key_secret = process.env.RAZORPAY_KEY_SECRET!;
-      const generatedSignature = crypto
-        .createHmac("sha256", key_secret)
-        .update(`${razorpay_order_id}|${razorpay_payment_id}`)
-        .digest("hex");
+    // We removed online payment verification here because for the balance 
+    // we only support cash or manual QR code verification as requested.
+    // If online method is passed, we will treat it as a manual QR verification for now.
+    
+    // For cash or qr: no signature needed — leader confirms receipt of cash or qr payment
 
-      if (generatedSignature !== razorpay_signature) {
-        return NextResponse.json(
-          { error: "Payment verification failed. Please contact support." },
-          { status: 400 }
-        );
-      }
-
-      // Verify the actual amount paid matches the needed balance
-      const razorpay = new Razorpay({
-        key_id: process.env.NEXT_PUBLIC_RAZORPAY_KEY_ID!,
-        key_secret: process.env.RAZORPAY_KEY_SECRET!,
-      });
-      const order = await razorpay.orders.fetch(razorpay_order_id);
-      const expectedAmountPaise = Math.round((booking.balance_amount || 0) * 100);
-      
-      if (order.amount !== expectedAmountPaise) {
-        return NextResponse.json(
-          { error: "Payment amount mismatch detected. Verification failed." },
-          { status: 400 }
-        );
-      }
-    }
-    // For cash: no signature needed — leader confirms receipt of cash
 
     // Mark booking as Completed
     const updateData: Record<string, any> = {
@@ -93,9 +62,6 @@ export async function POST(req: NextRequest) {
       delivered_at: new Date().toISOString(),
       delivered_by: user.id,
     };
-    if (paymentMethod === "online") {
-      updateData.balance_razorpay_payment_id = razorpay_payment_id ?? null;
-    }
 
     const adminClient = createAdminClient();
     const { error: updateError, data: updatedRows } = await adminClient
@@ -118,6 +84,55 @@ export async function POST(req: NextRequest) {
         return NextResponse.json({ error: fallbackErr?.message ?? "Could not update booking. It may have been modified already." }, { status: 500 });
       }
     }
+
+    // — Transaction Logging —
+    const balanceAmt = Number(booking?.balance_amount || 0);
+    const farmerIdForLog = booking?.farmer_id;
+
+    // Fetch farmer & item name for metadata
+    let farmerName = "Unknown";
+    let itemName = "Unknown";
+    if (farmerIdForLog) {
+      const { data: fInfo } = await supabase.from("farmers").select("name, unique_id").eq("id", farmerIdForLog).single();
+      if (fInfo) farmerName = fInfo.name;
+    }
+    if (booking?.item_id) {
+      const { data: iInfo } = await supabase.from("items").select("name").eq("id", booking.item_id).single();
+      if (iInfo) itemName = iInfo.name;
+    }
+
+    const completeMeta = {
+      item_name: itemName,
+      farmer_name: farmerName,
+      payment_method_balance: paymentMethod,
+      total_amount: Number(booking?.total_amount || 0),
+    };
+
+    if (balanceAmt > 0) {
+      await logTransaction({
+        bookingId,
+        farmerId: farmerIdForLog || "",
+        action: "BALANCE_COLLECTED",
+        amount: balanceAmt,
+        paymentMethod,
+        performedBy: user.id,
+        performerName: profile?.name || user.email || "Unknown",
+        performerRole: profile?.role || "Unknown",
+        metadata: completeMeta,
+      });
+    }
+
+    await logTransaction({
+      bookingId,
+      farmerId: farmerIdForLog || "",
+      action: "BOOKING_COMPLETED",
+      amount: Number(booking?.total_amount || 0),
+      paymentMethod,
+      performedBy: user.id,
+      performerName: profile?.name || user.email || "Unknown",
+      performerRole: profile?.role || "Unknown",
+      metadata: completeMeta,
+    });
 
     revalidatePath("/", "layout");
     return NextResponse.json({ success: true });

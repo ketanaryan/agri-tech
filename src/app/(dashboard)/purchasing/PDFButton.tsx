@@ -3,6 +3,8 @@
 import { useState } from "react";
 import { useRouter } from "next/navigation";
 import { Button } from "@/components/ui/button";
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter, DialogDescription } from "@/components/ui/dialog";
+import Image from "next/image";
 
 
 interface BookingInfo {
@@ -26,25 +28,6 @@ interface BookingInfo {
   };
 }
 
-declare global {
-  interface Window {
-    Razorpay: any;
-  }
-}
-
-function loadRazorpayScript(): Promise<boolean> {
-  return new Promise((resolve) => {
-    if (typeof window.Razorpay !== "undefined") {
-      resolve(true);
-      return;
-    }
-    const script = document.createElement("script");
-    script.src = "https://checkout.razorpay.com/v1/checkout.js";
-    script.onload = () => resolve(true);
-    script.onerror = () => resolve(false);
-    document.body.appendChild(script);
-  });
-}
 
 async function generatePDFBlob(booking: BookingInfo, payMethod: string): Promise<Blob> {
   const { jsPDF } = await import("jspdf");
@@ -59,7 +42,7 @@ async function generatePDFBlob(booking: BookingInfo, payMethod: string): Promise
   doc.setTextColor(100);
   doc.text(`Date: ${new Date().toLocaleDateString("en-IN")}`, 14, 31);
   doc.text(`Booking ID: ${booking.id.slice(0, 8).toUpperCase()}`, 14, 37);
-  doc.text(`Payment Method: ${payMethod === "cash" ? "Cash" : "Online (Razorpay)"}`, 14, 43);
+  doc.text(`Payment Method: ${payMethod === "cash" ? "Cash" : "Online (Cashfree)"}`, 14, 43);
 
   doc.setTextColor(0);
   doc.setFontSize(12);
@@ -105,13 +88,12 @@ async function generatePDFBlob(booking: BookingInfo, payMethod: string): Promise
 
 async function completeBooking(
   bookingId: string,
-  paymentMethod: "online" | "cash",
-  razorpayData?: { razorpay_order_id: string; razorpay_payment_id: string; razorpay_signature: string }
+  paymentMethod: "online" | "cash" | "qr"
 ) {
   const res = await fetch("/api/bookings/complete", {
     method: "POST",
     headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({ bookingId, paymentMethod, ...razorpayData }),
+    body: JSON.stringify({ bookingId, paymentMethod }),
   });
   return res;
 }
@@ -126,6 +108,7 @@ export function PDFButton({ booking }: { booking: BookingInfo }) {
   // WhatsApp and Download state
   const [waUrl, setWaUrl] = useState<string>("");
   const [localPdfUrl, setLocalPdfUrl] = useState<string>("");
+  const [showQrModal, setShowQrModal] = useState(false);
 
   const handleSuccess = async (method: string) => {
     // Generate PDF Blob
@@ -184,79 +167,26 @@ export function PDFButton({ booking }: { booking: BookingInfo }) {
     }
   };
 
-  const handleOnline = async () => {
-    setLoading("online");
+  const handleQrClick = () => {
+    setShowQrModal(true);
+  };
+
+  const handleManualQrPaid = async () => {
+    setShowQrModal(false);
+    setLoading("qr" as any);
     setError(null);
     try {
-      const loaded = await loadRazorpayScript();
-      if (!loaded) {
-        setError("Failed to load Razorpay. Check your internet connection.");
-        setLoading(null);
-        return;
+      const res = await completeBooking(booking.id, "qr");
+      if (res.ok) {
+        await handleSuccess("qr");
+      } else {
+        const d = await res.json();
+        setError(d.error ?? "Could not complete booking.");
       }
-
-      const orderRes = await fetch("/api/razorpay/create-order", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          amount: booking.balance_amount,
-          receipt: `bal_${booking.id.slice(0, 8)}_${Date.now()}`,
-          notes: { booking_id: booking.id, payment_type: "balance" },
-        }),
-      });
-
-      const orderData = await orderRes.json();
-      if (!orderRes.ok || orderData.error) {
-        setError(orderData.error ?? "Could not create payment order.");
-        setLoading(null);
-        return;
-      }
-
-      const options = {
-        key: process.env.NEXT_PUBLIC_RAZORPAY_KEY_ID ?? "",
-        amount: orderData.amount,
-        currency: orderData.currency,
-        name: "AgriTech ERP",
-        description: `Balance payment — ${booking.item.name}`,
-        order_id: orderData.orderId,
-        prefill: { name: booking.farmer.name, contact: booking.farmer.phone },
-        theme: { color: "#16a34a" },
-        handler: async function (response: any) {
-          try {
-            const res = await completeBooking(booking.id, "online", {
-              razorpay_order_id: response.razorpay_order_id,
-              razorpay_payment_id: response.razorpay_payment_id,
-              razorpay_signature: response.razorpay_signature,
-            });
-            if (res.ok) {
-              await handleSuccess("online");
-            } else {
-              const d = await res.json();
-              setError(d.error ?? "Could not complete booking after payment.");
-            }
-          } catch (err: any) {
-            console.error(err);
-            setError(`Failed to complete booking after payment: ${err?.message || "Unknown error"}`);
-          } finally {
-            setLoading(null);
-          }
-        },
-        modal: {
-          ondismiss: () => {
-            setError("Payment cancelled.");
-            setLoading(null);
-          },
-        },
-      };
-
-      const rzp = new window.Razorpay(options);
-      rzp.on("payment.failed", (response: any) => {
-        setError(`Payment failed: ${response.error.description}`);
-        setLoading(null);
-      });
-      rzp.open();
     } catch (err: any) {
-      setError(err?.message ?? "Unexpected error.");
+      console.error(err);
+      setError(`Failed to complete booking: ${err?.message || "Unknown error"}`);
+    } finally {
       setLoading(null);
     }
   };
@@ -266,7 +196,7 @@ export function PDFButton({ booking }: { booking: BookingInfo }) {
       <div className="space-y-3">
         <div className="flex items-center gap-2 p-2 bg-green-50 rounded-lg border border-green-200">
           <span className="text-green-700 font-medium text-sm">
-            ✅ Delivered — {paidMethod === "cash" ? "Cash Paid" : "Online Paid"}
+            ✅ Delivered — {paidMethod === "cash" ? "Cash Paid" : paidMethod === "qr" ? "QR Paid" : "Paid"}
           </span>
         </div>
         
@@ -312,13 +242,13 @@ export function PDFButton({ booking }: { booking: BookingInfo }) {
       </p>
 
       <div className="flex gap-2">
-        {/* Online */}
+        {/* QR Code */}
         <Button
-          onClick={handleOnline}
+          onClick={handleQrClick}
           disabled={!!loading}
-          className="flex-1 bg-green-600 hover:bg-green-700 text-sm"
+          className="flex-1 bg-blue-600 hover:bg-blue-700 text-sm text-white"
         >
-          {loading === "online" ? "Opening..." : "💳 Pay Online"}
+          {loading === "qr" as any ? "Opening..." : "📷 Pay via QR"}
         </Button>
 
         {/* Cash */}
@@ -330,6 +260,30 @@ export function PDFButton({ booking }: { booking: BookingInfo }) {
           {loading === "cash" ? "Confirming..." : "💵 Cash Paid"}
         </Button>
       </div>
+
+      <Dialog open={showQrModal} onOpenChange={setShowQrModal}>
+        <DialogContent className="sm:max-w-md">
+          <DialogHeader>
+            <DialogTitle>Collect Balance via QR</DialogTitle>
+            <DialogDescription>
+              Show this QR code to {booking.farmer.name} to collect the balance amount of ₹{booking.balance_amount.toLocaleString("en-IN", { minimumFractionDigits: 2 })}. Once paid, click "OK, Collected".
+            </DialogDescription>
+          </DialogHeader>
+          <div className="flex justify-center p-4">
+            <div className="w-64 h-64 border-4 border-blue-500 rounded-xl bg-gray-50 flex items-center justify-center p-2 relative overflow-hidden">
+               <Image src={`https://api.qrserver.com/v1/create-qr-code/?size=250x250&data=upi://pay?pa=agritecherp@upi&pn=AgriTechERP&am=${booking.balance_amount}`} fill alt="QR Code" className="object-contain" />
+            </div>
+          </div>
+          <DialogFooter className="flex gap-2 justify-end sm:justify-end">
+            <Button variant="outline" onClick={() => setShowQrModal(false)} disabled={!!loading}>
+              Cancel
+            </Button>
+            <Button className="bg-blue-600 hover:bg-blue-700 text-white" onClick={handleManualQrPaid} disabled={!!loading}>
+              {loading === "qr" as any ? "Processing..." : "OK, Collected"}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }

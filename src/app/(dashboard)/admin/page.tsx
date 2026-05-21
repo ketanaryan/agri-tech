@@ -14,7 +14,7 @@ import {
   TableRow,
 } from "@/components/ui/table";
 import { redirect } from "next/navigation";
-import { Users, AlertCircle, IndianRupee, Tractor, FlaskConical, AlertTriangle, MapPin } from "lucide-react";
+import { Users, AlertCircle, IndianRupee, Tractor, FlaskConical, AlertTriangle, MapPin, Receipt } from "lucide-react";
 import { CreateUserForm } from "@/components/shared/CreateUserForm";
 
 export default async function AdminPage() {
@@ -48,6 +48,13 @@ export default async function AdminPage() {
 
   // Low stock pesticides
   const lowStockPesticides = pesticides?.filter(p => Number(p.current_stock) <= Number(p.low_stock_threshold)) || [];
+
+  // Transaction Logs — most recent 50
+  const { data: transactionLogs } = await supabase
+    .from("transaction_logs")
+    .select("*")
+    .order("created_at", { ascending: false })
+    .limit(50);
 
   return (
     <div className="space-y-6">
@@ -392,6 +399,102 @@ export default async function AdminPage() {
               ))}
             </TableBody>
           </Table>
+        </CardContent>
+      </Card>
+      {/* Transaction Log */}
+      <Card>
+        <CardHeader className="flex flex-row items-center gap-2">
+          <Receipt className="w-5 h-5 text-indigo-600" />
+          <CardTitle>Transaction Log</CardTitle>
+        </CardHeader>
+        <CardContent>
+          {(!transactionLogs || transactionLogs.length === 0) ? (
+            <div className="text-center text-gray-500 py-12">
+              No transactions recorded yet. Transactions will appear here once bookings are created, completed, or cancelled.
+            </div>
+          ) : (
+            <div className="border rounded-md overflow-x-auto">
+              <Table>
+                <TableHeader>
+                  <TableRow>
+                    <TableHead>Date & Time</TableHead>
+                    <TableHead>Action</TableHead>
+                    <TableHead>Farmer</TableHead>
+                    <TableHead>Item</TableHead>
+                    <TableHead>Amount</TableHead>
+                    <TableHead>Payment</TableHead>
+                    <TableHead>Performed By</TableHead>
+                    <TableHead>Role</TableHead>
+                  </TableRow>
+                </TableHeader>
+                <TableBody>
+                  {transactionLogs.map((log: any) => {
+                    const actionStyles: Record<string, string> = {
+                      BOOKING_CREATED: "bg-green-100 text-green-800",
+                      ADVANCE_PAID: "bg-blue-100 text-blue-800",
+                      BALANCE_COLLECTED: "bg-amber-100 text-amber-800",
+                      BOOKING_COMPLETED: "bg-emerald-100 text-emerald-800",
+                      BOOKING_CANCELLED: "bg-red-100 text-red-700",
+                    };
+                    const actionLabels: Record<string, string> = {
+                      BOOKING_CREATED: "📦 Booking Created",
+                      ADVANCE_PAID: "💳 Advance Paid",
+                      BALANCE_COLLECTED: "💰 Balance Collected",
+                      BOOKING_COMPLETED: "✅ Completed",
+                      BOOKING_CANCELLED: "❌ Cancelled",
+                    };
+                    const meta = log.metadata || {};
+                    return (
+                      <TableRow key={log.id}>
+                        <TableCell className="whitespace-nowrap text-xs text-gray-600">
+                          {new Date(log.created_at).toLocaleDateString("en-IN", { day: "2-digit", month: "short", year: "numeric" })}
+                          <br />
+                          <span className="text-gray-400">
+                            {new Date(log.created_at).toLocaleTimeString("en-IN", { hour: "2-digit", minute: "2-digit" })}
+                          </span>
+                        </TableCell>
+                        <TableCell>
+                          <span className={`px-2 py-1 text-[10px] uppercase font-bold tracking-wider rounded-full whitespace-nowrap ${actionStyles[log.action] || "bg-gray-100 text-gray-700"}`}>
+                            {actionLabels[log.action] || log.action}
+                          </span>
+                        </TableCell>
+                        <TableCell>
+                          <div className="text-sm font-medium">{meta.farmer_name || "—"}</div>
+                          {meta.farmer_unique_id && (
+                            <div className="text-[10px] text-gray-400 font-mono">{meta.farmer_unique_id}</div>
+                          )}
+                        </TableCell>
+                        <TableCell className="text-sm">
+                          {meta.item_name || "—"}
+                          {meta.booking_type === "pesticide" && (
+                            <span className="ml-1 text-[10px] bg-purple-100 text-purple-700 px-1.5 py-0.5 rounded-full">Pesticide</span>
+                          )}
+                        </TableCell>
+                        <TableCell className="font-mono font-semibold text-sm whitespace-nowrap">
+                          {log.action === "BOOKING_CANCELLED" ? (
+                            <span className="text-red-600">₹{Number(log.amount).toLocaleString("en-IN")}</span>
+                          ) : (
+                            <span className="text-green-700">₹{Number(log.amount).toLocaleString("en-IN")}</span>
+                          )}
+                        </TableCell>
+                        <TableCell className="text-xs text-gray-500 capitalize">
+                          {log.payment_method || "—"}
+                        </TableCell>
+                        <TableCell className="text-sm">
+                          {log.performer_name || "—"}
+                        </TableCell>
+                        <TableCell>
+                          <span className="px-2 py-0.5 bg-gray-100 text-gray-600 text-[10px] rounded-full font-semibold uppercase tracking-wider">
+                            {log.performer_role || "—"}
+                          </span>
+                        </TableCell>
+                      </TableRow>
+                    );
+                  })}
+                </TableBody>
+              </Table>
+            </div>
+          )}
         </CardContent>
       </Card>
     </div>

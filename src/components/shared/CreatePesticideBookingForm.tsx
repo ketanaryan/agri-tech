@@ -12,6 +12,8 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import Image from "next/image";
+import { load } from '@cashfreepayments/cashfree-js';
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter, DialogDescription } from "@/components/ui/dialog";
 
 interface Farmer {
   id: string;
@@ -32,25 +34,7 @@ interface CreatePesticideBookingFormProps {
   pesticides: Pesticide[];
 }
 
-declare global {
-  interface Window {
-    Razorpay: any;
-  }
-}
 
-function loadRazorpayScript(): Promise<boolean> {
-  return new Promise((resolve) => {
-    if (typeof window.Razorpay !== "undefined") {
-      resolve(true);
-      return;
-    }
-    const script = document.createElement("script");
-    script.src = "https://checkout.razorpay.com/v1/checkout.js";
-    script.onload = () => resolve(true);
-    script.onerror = () => resolve(false);
-    document.body.appendChild(script);
-  });
-}
 
 export function CreatePesticideBookingForm({ farmers, pesticides }: CreatePesticideBookingFormProps) {
   const [farmerId, setFarmerId] = useState("");
@@ -61,6 +45,7 @@ export function CreatePesticideBookingForm({ farmers, pesticides }: CreatePestic
   const [msg, setMsg] = useState<{ text: string; type: "success" | "error"; waUrl?: string; localPdfUrl?: string; bookingId?: string } | null>(null);
   const [paying, setPaying] = useState(false);
   const [isPending, startTransition] = useTransition();
+  const [showQrModal, setShowQrModal] = useState(false);
 
   const qty = parseFloat(qtyStr) || 0;
   const selectedPesticide = pesticides.find((p) => p.id === pesticideId);
@@ -74,11 +59,11 @@ export function CreatePesticideBookingForm({ farmers, pesticides }: CreatePestic
   const replacementQty = 0;
   const totalDelivered = qty;
 
-  const createBookingInDB = async (razorpayData?: {
-    razorpay_order_id: string;
-    razorpay_payment_id: string;
-    razorpay_signature: string;
+  const createBookingInDB = async (paymentData?: {
+    gateway_order_id?: string;
+    method?: string;
   }) => {
+    const methodToUse = paymentData?.method || payMethod;
     const bookRes = await fetch("/api/bookings/pesticide-create", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
@@ -86,9 +71,9 @@ export function CreatePesticideBookingForm({ farmers, pesticides }: CreatePestic
         farmerId,
         pesticideId,
         qty,
-        paymentMethod: payMethod,
+        paymentMethod: methodToUse,
         paymentType: payType,
-        ...razorpayData,
+        ...paymentData,
       }),
     });
     const bookData = await bookRes.json();
@@ -200,7 +185,7 @@ export function CreatePesticideBookingForm({ farmers, pesticides }: CreatePestic
     setMsg(null);
 
     try {
-      // If payment is ₹0.00 (because rate is 0), just skip razorpay
+      // If payment is ₹0.00 (because rate is 0), skip payment gateway
       if (checkoutAmount <= 0) {
         startTransition(async () => {
           await createBookingInDB();
@@ -208,14 +193,12 @@ export function CreatePesticideBookingForm({ farmers, pesticides }: CreatePestic
         return;
       }
 
-      // Online: Razorpay flow
-      const loaded = await loadRazorpayScript();
-      if (!loaded) {
-        setMsg({ text: "Failed to load Razorpay. Check your internet connection.", type: "error" });
-        setPaying(false);
+      if (payType === "full") {
+        setShowQrModal(true);
         return;
       }
 
+      // Online: Cashfree flow
       const receiptId = `${payType}_pest_${farmerId.slice(0, 8)}_${Date.now()}`;
 
       const notes = {
@@ -225,13 +208,18 @@ export function CreatePesticideBookingForm({ farmers, pesticides }: CreatePestic
         farmer_id: farmerId
       };
 
-      const orderRes = await fetch("/api/razorpay/create-order", {
+      const prefillName = selectedFarmer?.name ?? "";
+      const prefillContact = selectedFarmer?.phone ?? "";
+
+      const orderRes = await fetch("/api/cashfree/create-order", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
           amount: checkoutAmount,
           receipt: receiptId,
           notes,
+          customer_name: prefillName || "Guest",
+          customer_phone: prefillContact || "9999999999",
         }),
       });
 
@@ -242,45 +230,42 @@ export function CreatePesticideBookingForm({ farmers, pesticides }: CreatePestic
         return;
       }
 
-      const prefillName = selectedFarmer?.name ?? "";
-      const prefillContact = selectedFarmer?.phone ?? "";
+      const cashfree = await load({
+        mode: "sandbox", 
+      });
 
-      const options = {
-        key: process.env.NEXT_PUBLIC_RAZORPAY_KEY_ID ?? "",
-        amount: orderData.amount,
-        currency: orderData.currency,
-        name: "AgriTech ERP",
-        description: `${payType === "full" ? "Full Payment" : "Advance"} for ${selectedPesticide?.name} × ${qty}`,
-        order_id: orderData.orderId,
-        prefill: { name: prefillName, contact: prefillContact },
-        theme: { color: "#16a34a" },
-        handler: async function (response: any) {
-          startTransition(async () => {
-            await createBookingInDB({
-              razorpay_order_id: response.razorpay_order_id,
-              razorpay_payment_id: response.razorpay_payment_id,
-              razorpay_signature: response.razorpay_signature,
-            });
-          });
-        },
-        modal: {
-          ondismiss: () => {
-            setMsg({ text: "Payment cancelled. No booking was created.", type: "error" });
-            setPaying(false);
-          },
-        },
+      const checkoutOptions = {
+        paymentSessionId: orderData.paymentSessionId,
+        redirectTarget: "_modal",
       };
 
-      const rzp = new window.Razorpay(options);
-      rzp.on("payment.failed", (response: any) => {
-        setMsg({ text: `Payment failed: ${response.error.description}`, type: "error" });
-        setPaying(false);
+      cashfree.checkout(checkoutOptions).then((result: any) => {
+        if (result.error) {
+          setMsg({ text: `Payment failed: ${result.error.message}`, type: "error" });
+          setPaying(false);
+        }
+        if (result.paymentDetails) {
+          startTransition(async () => {
+            await createBookingInDB({
+              gateway_order_id: orderData.orderId,
+            });
+          });
+        }
       });
-      rzp.open();
     } catch (err: any) {
       setMsg({ text: err?.message ?? "An unexpected error occurred.", type: "error" });
       setPaying(false);
     }
+  };
+
+  const handleManualQrPaid = () => {
+    setShowQrModal(false);
+    startTransition(async () => {
+      await createBookingInDB({
+        gateway_order_id: "qr_payment",
+        method: "qr",
+      });
+    });
   };
 
   return (
@@ -363,7 +348,7 @@ export function CreatePesticideBookingForm({ farmers, pesticides }: CreatePestic
       <div className="space-y-2">
         <Label>Payment Method</Label>
         <div className="p-3 bg-gray-50 border border-gray-200 rounded-lg text-sm text-gray-700 flex items-center">
-          💳 Online Payment Only (via Razorpay)
+          💳 Online Payment Only (via Cashfree)
         </div>
       </div>
 
@@ -396,7 +381,7 @@ export function CreatePesticideBookingForm({ farmers, pesticides }: CreatePestic
                 <span>₹{balanceAmount.toLocaleString("en-IN", { minimumFractionDigits: 2 })}</span>
               </div>
               <p className="text-xs text-gray-400">
-                💳 Razorpay will open for ₹{checkoutAmount.toFixed(2)}.
+                {payType === "full" ? "📷 A QR code will be displayed for manual payment verification." : `💳 Cashfree will open for ₹${checkoutAmount.toFixed(2)}.`}
               </p>
             </>
           ) : (
@@ -465,6 +450,30 @@ export function CreatePesticideBookingForm({ farmers, pesticides }: CreatePestic
           ? `Pay ₹${checkoutAmount.toFixed(2)} & Generate Booking`
           : "Generate Booking"}
       </Button>
+
+      <Dialog open={showQrModal} onOpenChange={setShowQrModal}>
+        <DialogContent className="sm:max-w-md">
+          <DialogHeader>
+            <DialogTitle>Complete Payment via QR</DialogTitle>
+            <DialogDescription>
+              Please scan the QR code below to pay the full amount of ₹{checkoutAmount.toFixed(2)}. Once you have paid, click "OK, I have Paid".
+            </DialogDescription>
+          </DialogHeader>
+          <div className="flex justify-center p-4">
+            <div className="w-64 h-64 border-4 border-green-500 rounded-xl bg-gray-50 flex items-center justify-center p-2 relative overflow-hidden">
+               <Image src={`https://api.qrserver.com/v1/create-qr-code/?size=250x250&data=upi://pay?pa=agritecherp@upi&pn=AgriTechERP&am=${checkoutAmount.toFixed(2)}`} fill alt="QR Code" className="object-contain" />
+            </div>
+          </div>
+          <DialogFooter className="flex gap-2 justify-end sm:justify-end">
+            <Button variant="outline" onClick={() => setShowQrModal(false)} disabled={isPending}>
+              Cancel
+            </Button>
+            <Button className="bg-green-600 hover:bg-green-700" onClick={handleManualQrPaid} disabled={isPending}>
+              {isPending ? "Processing..." : "OK, I have Paid"}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }

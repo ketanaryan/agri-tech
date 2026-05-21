@@ -1,8 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { createClient } from "@/lib/supabase/server";
 import { createAdminClient } from "@/lib/supabase/admin";
-import crypto from "crypto";
-import Razorpay from "razorpay";
+import { logTransaction } from "@/lib/transaction-logger";
 
 async function generateFarmerUniqueId(supabase: any): Promise<string> {
   for (let i = 0; i < 5; i++) {
@@ -31,7 +30,7 @@ export async function POST(req: NextRequest) {
 
     const { data: profile } = await supabase
       .from("profiles")
-      .select("role, district")
+      .select("role, district, name")
       .eq("id", user.id)
       .single();
 
@@ -53,9 +52,7 @@ export async function POST(req: NextRequest) {
       qty,
       paymentMethod = "online",
       paymentType = "advance",
-      razorpay_order_id,
-      razorpay_payment_id,
-      razorpay_signature,
+      gateway_order_id,
     } = body;
 
     if (farmerMode === "existing" && !farmerId) {
@@ -64,25 +61,86 @@ export async function POST(req: NextRequest) {
     if (farmerMode === "new" && (!newFarmerData?.name || !newFarmerData?.phone)) {
       return NextResponse.json({ error: "New farmer data incomplete" }, { status: 400 });
     }
+    if (farmerMode === "new" && !newFarmerData?.pan_card) {
+      return NextResponse.json({ error: "PAN Card is required for new farmer registration" }, { status: 400 });
+    }
+    if (farmerMode === "new" && !newFarmerData?.aadhar_card) {
+      return NextResponse.json({ error: "Aadhar Card is required for new farmer registration" }, { status: 400 });
+    }
     if (!itemId || !qty || qty <= 0) {
       return NextResponse.json({ error: "Invalid booking inputs" }, { status: 400 });
     }
+    if (qty > 100000) {
+      return NextResponse.json({ error: "Quantity exceeds maximum allowed" }, { status: 400 });
+    }
 
-    // Verify Razorpay signature only for online payments
-    if (paymentMethod === "online") {
-      if (!razorpay_order_id || !razorpay_payment_id || !razorpay_signature) {
-        return NextResponse.json({ error: "Missing Razorpay payment details" }, { status: 400 });
+    // Input length validation
+    if (farmerMode === "new") {
+      if (newFarmerData?.name?.length > 200) return NextResponse.json({ error: "Farmer name too long" }, { status: 400 });
+      if (newFarmerData?.phone?.length > 15) return NextResponse.json({ error: "Phone number too long" }, { status: 400 });
+      if (newFarmerData?.address?.length > 500) return NextResponse.json({ error: "Address too long" }, { status: 400 });
+      if (newFarmerData?.pan_card?.length > 10) return NextResponse.json({ error: "PAN card number too long" }, { status: 400 });
+      if (newFarmerData?.aadhar_card?.length > 12) return NextResponse.json({ error: "Aadhar card number too long" }, { status: 400 });
+    }
+
+    // Fetch item rate first to calculate expected payment amounts
+    const { data: item, error: itemError } = await supabase
+      .from("items")
+      .select("rate_per_unit")
+      .eq("id", itemId)
+      .single();
+
+    if (itemError || !item) {
+      return NextResponse.json({ error: "Item not found" }, { status: 404 });
+    }
+
+    const total_amount = item.rate_per_unit * qty;
+    const booking_amount = paymentType === "full" 
+      ? total_amount 
+      : Math.round(total_amount * 0.1 * 100) / 100;
+    const balance_amount = Math.round((total_amount - booking_amount) * 100) / 100;
+
+    // Verify Cashfree payment only for online payments
+    if (paymentMethod === "online" && booking_amount > 0) {
+      if (!gateway_order_id) {
+        return NextResponse.json({ error: "Missing Payment details" }, { status: 400 });
       }
-      const key_secret = process.env.RAZORPAY_KEY_SECRET!;
-      const generatedSignature = crypto
-        .createHmac("sha256", key_secret)
-        .update(`${razorpay_order_id}|${razorpay_payment_id}`)
-        .digest("hex");
 
-      if (generatedSignature !== razorpay_signature) {
+      const appId = process.env.CASHFREE_APP_ID;
+      const secretKey = process.env.CASHFREE_SECRET_KEY;
+      const environment = process.env.CASHFREE_ENVIRONMENT || "SANDBOX";
+      const baseUrl = environment === "PRODUCTION" ? "https://api.cashfree.com/pg/orders" : "https://sandbox.cashfree.com/pg/orders";
+
+      try {
+        const response = await fetch(`${baseUrl}/${gateway_order_id}`, {
+          method: "GET",
+          headers: {
+            "x-api-version": "2023-08-01",
+            "x-client-id": appId!,
+            "x-client-secret": secretKey!,
+            "Content-Type": "application/json",
+            "Accept": "application/json",
+          },
+        });
+        const orderData = await response.json();
+        
+        if (!response.ok || orderData.order_status !== "PAID") {
+          return NextResponse.json(
+            { error: "Payment verification failed or payment not completed." },
+            { status: 400 }
+          );
+        }
+
+        if (Math.abs(orderData.order_amount - booking_amount) > 1) { // Allowing 1 INR difference max due to rounding
+           return NextResponse.json(
+             { error: "Payment amount mismatch detected. Verification failed." },
+             { status: 400 }
+           );
+        }
+      } catch (e) {
         return NextResponse.json(
-          { error: "Payment verification failed. Please contact support." },
-          { status: 400 }
+          { error: "Error verifying payment with payment gateway." },
+          { status: 500 }
         );
       }
     }
@@ -110,6 +168,11 @@ export async function POST(req: NextRequest) {
           land_size: newFarmerData.land_size || null,
           land_unit: newFarmerData.land_unit || "acres",
           land_type: newFarmerData.land_type || null,
+          crop_type: newFarmerData.crop_type || null,
+          growth_stage: newFarmerData.growth_stage || null,
+          health_status: newFarmerData.health_status || null,
+          irrigation_status: newFarmerData.irrigation_status || null,
+          irrigation_source: newFarmerData.irrigation_source || null,
           unique_id: generated_unique_id,
           district,
         })
@@ -132,42 +195,12 @@ export async function POST(req: NextRequest) {
       if (existingFarmer) finalFarmerUniqueId = existingFarmer.unique_id;
     }
 
-    // Fetch item rate
-    const { data: item, error: itemError } = await supabase
-      .from("items")
-      .select("rate_per_unit")
-      .eq("id", itemId)
-      .single();
-
-    if (itemError || !item) {
-      return NextResponse.json({ error: "Item not found" }, { status: 404 });
-    }
-
-    const total_amount = item.rate_per_unit * qty;
-    const booking_amount = paymentType === "full" 
-      ? total_amount 
-      : Math.round(total_amount * 0.1 * 100) / 100;
-    const balance_amount = Math.round((total_amount - booking_amount) * 100) / 100;
 
     // Replacement plants: 10% of ordered qty, free of charge
     const replacement_qty = Math.floor(qty * 0.1);
 
-    if (paymentMethod === "online") {
-      const razorpay = new Razorpay({
-        key_id: process.env.NEXT_PUBLIC_RAZORPAY_KEY_ID!,
-        key_secret: process.env.RAZORPAY_KEY_SECRET!,
-      });
-      const order = await razorpay.orders.fetch(razorpay_order_id);
-      const expectedAmountPaise = Math.round(booking_amount * 100);
-      if (order.amount !== expectedAmountPaise) {
-        return NextResponse.json(
-          { error: "Payment amount mismatch detected. Verification failed." },
-          { status: 400 }
-        );
-      }
-    }
 
-    // Insert booking — try with razorpay columns first, fallback without
+    // Insert booking — try with gateway columns first, fallback without
     const insertData: Record<string, any> = {
       farmer_id: finalFarmerId,
       item_id: itemId,
@@ -182,8 +215,8 @@ export async function POST(req: NextRequest) {
       advance_payment_method: paymentMethod,
     };
     if (paymentMethod === "online") {
-      insertData.razorpay_order_id = razorpay_order_id ?? null;
-      insertData.razorpay_payment_id = razorpay_payment_id ?? null;
+      // Storing Cashfree order ID in razorpay_order_id column (legacy column name, avoids DB migration)
+      insertData.razorpay_order_id = gateway_order_id ?? null;
     }
 
     const adminClient = createAdminClient();
@@ -215,7 +248,72 @@ export async function POST(req: NextRequest) {
       if (fallbackErr) {
         return NextResponse.json({ error: fallbackErr.message }, { status: 500 });
       }
+
+      // Log transaction for fallback path too
+      const fbId = fallback?.id;
+      if (fbId) {
+        const { data: itemInfo } = await supabase.from("items").select("name").eq("id", itemId).single();
+        let resolvedFarmerName = farmerMode === "new" ? newFarmerData?.name : undefined;
+        if (!resolvedFarmerName && finalFarmerId) {
+          const { data: fInfo } = await supabase.from("farmers").select("name").eq("id", finalFarmerId).single();
+          resolvedFarmerName = fInfo?.name;
+        }
+        const fbMeta = { item_name: itemInfo?.name || "Unknown", farmer_name: resolvedFarmerName || "Unknown", farmer_unique_id: finalFarmerUniqueId, payment_type: paymentType, qty };
+        await logTransaction({ bookingId: fbId, farmerId: finalFarmerId, action: "BOOKING_CREATED", amount: total_amount, paymentMethod, performedBy: user.id, performerName: profile?.name || user.email || "Unknown", performerRole: profile?.role || "Unknown", metadata: fbMeta });
+        if (booking_amount > 0) {
+          await logTransaction({ bookingId: fbId, farmerId: finalFarmerId, action: "ADVANCE_PAID", amount: booking_amount, paymentMethod, performedBy: user.id, performerName: profile?.name || user.email || "Unknown", performerRole: profile?.role || "Unknown", metadata: fbMeta });
+        }
+      }
+
       return NextResponse.json({ success: true, bookingId: fallback?.id, finalFarmerUniqueId });
+    }
+
+    // — Transaction Logging —
+    const bookingIdForLog = newBooking?.id;
+    if (bookingIdForLog) {
+      // Fetch item name and farmer name for metadata
+      const { data: itemInfo } = await supabase.from("items").select("name").eq("id", itemId).single();
+      const farmerName = farmerMode === "new" ? newFarmerData?.name : undefined;
+      let resolvedFarmerName = farmerName;
+      if (!resolvedFarmerName && finalFarmerId) {
+        const { data: fInfo } = await supabase.from("farmers").select("name").eq("id", finalFarmerId).single();
+        resolvedFarmerName = fInfo?.name;
+      }
+
+      const sharedMeta = {
+        item_name: itemInfo?.name || "Unknown",
+        farmer_name: resolvedFarmerName || "Unknown",
+        farmer_unique_id: finalFarmerUniqueId,
+        payment_type: paymentType,
+        gateway_order_id: gateway_order_id || null,
+        qty,
+      };
+
+      await logTransaction({
+        bookingId: bookingIdForLog,
+        farmerId: finalFarmerId,
+        action: "BOOKING_CREATED",
+        amount: total_amount,
+        paymentMethod: paymentMethod,
+        performedBy: user.id,
+        performerName: profile?.name || user.email || "Unknown",
+        performerRole: profile?.role || "Unknown",
+        metadata: sharedMeta,
+      });
+
+      if (booking_amount > 0) {
+        await logTransaction({
+          bookingId: bookingIdForLog,
+          farmerId: finalFarmerId,
+          action: "ADVANCE_PAID",
+          amount: booking_amount,
+          paymentMethod: paymentMethod,
+          performedBy: user.id,
+          performerName: profile?.name || user.email || "Unknown",
+          performerRole: profile?.role || "Unknown",
+          metadata: sharedMeta,
+        });
+      }
     }
 
     return NextResponse.json({ success: true, bookingId: newBooking?.id, finalFarmerUniqueId });

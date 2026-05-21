@@ -30,11 +30,16 @@ export async function GET(req: NextRequest) {
       return NextResponse.json({ error: "Forbidden" }, { status: 403 });
     }
 
-    // Step 1: Find matching farmers
+    // Sanitize to prevent PostgREST filter injection
+    const safeQ = q.replace(/[%_(),.\\\"']/g, "").slice(0, 100);
+    if (!safeQ) {
+      return NextResponse.json({ bookings: [] });
+    }
+
     const { data: matchedFarmers, error: farmerError } = await supabase
       .from("farmers")
       .select("id")
-      .or(`unique_id.ilike.%${q}%,name.ilike.%${q}%`);
+      .or(`unique_id.ilike.%${safeQ}%,name.ilike.%${safeQ}%`);
 
     if (farmerError) {
       return NextResponse.json(

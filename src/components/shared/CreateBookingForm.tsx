@@ -12,6 +12,8 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import Image from "next/image";
+import { load } from '@cashfreepayments/cashfree-js';
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter, DialogDescription } from "@/components/ui/dialog";
 
 interface Farmer {
   id: string;
@@ -33,25 +35,6 @@ interface CreateBookingFormProps {
   mode?: "new" | "existing" | "both";
 }
 
-declare global {
-  interface Window {
-    Razorpay: any;
-  }
-}
-
-function loadRazorpayScript(): Promise<boolean> {
-  return new Promise((resolve) => {
-    if (typeof window.Razorpay !== "undefined") {
-      resolve(true);
-      return;
-    }
-    const script = document.createElement("script");
-    script.src = "https://checkout.razorpay.com/v1/checkout.js";
-    script.onload = () => resolve(true);
-    script.onerror = () => resolve(false);
-    document.body.appendChild(script);
-  });
-}
 
 export function CreateBookingForm({ farmers, items, mode = "both" }: CreateBookingFormProps) {
   const [farmerMode, setFarmerMode] = useState<"existing" | "new">(mode === "new" ? "new" : "existing");
@@ -68,6 +51,11 @@ export function CreateBookingForm({ farmers, items, mode = "both" }: CreateBooki
   const [newFarmerLandSize, setNewFarmerLandSize] = useState("");
   const [newFarmerLandUnit, setNewFarmerLandUnit] = useState("acres");
   const [newFarmerLandType, setNewFarmerLandType] = useState("");
+  const [newFarmerCropType, setNewFarmerCropType] = useState("");
+  const [newFarmerGrowthStage, setNewFarmerGrowthStage] = useState("");
+  const [newFarmerHealthStatus, setNewFarmerHealthStatus] = useState("");
+  const [newFarmerIrrigationStatus, setNewFarmerIrrigationStatus] = useState("");
+  const [newFarmerIrrigationSource, setNewFarmerIrrigationSource] = useState("");
   
   // Photo Upload State
   const [photoPreview, setPhotoPreview] = useState<string | null>(null);
@@ -83,6 +71,7 @@ export function CreateBookingForm({ farmers, items, mode = "both" }: CreateBooki
   const [msg, setMsg] = useState<{ text: string; type: "success" | "error"; waUrl?: string; localPdfUrl?: string; bookingId?: string } | null>(null);
   const [paying, setPaying] = useState(false);
   const [isPending, startTransition] = useTransition();
+  const [showQrModal, setShowQrModal] = useState(false);
 
   const qty = parseInt(qtyStr, 10) || 0;
   const selectedItem = items.find((i) => i.id === itemId);
@@ -137,11 +126,11 @@ export function CreateBookingForm({ farmers, items, mode = "both" }: CreateBooki
     }
   };
 
-  const createBookingInDB = async (razorpayData?: {
-    razorpay_order_id: string;
-    razorpay_payment_id: string;
-    razorpay_signature: string;
+  const createBookingInDB = async (paymentData?: {
+    gateway_order_id?: string;
+    method?: string;
   }) => {
+    const methodToUse = paymentData?.method || payMethod;
     const bookRes = await fetch("/api/bookings/create", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
@@ -159,12 +148,17 @@ export function CreateBookingForm({ farmers, items, mode = "both" }: CreateBooki
           land_size: newFarmerLandSize ? parseFloat(newFarmerLandSize) : null,
           land_unit: newFarmerLandUnit || "acres",
           land_type: newFarmerLandType || null,
+          crop_type: newFarmerCropType || null,
+          growth_stage: newFarmerGrowthStage || null,
+          health_status: newFarmerHealthStatus || null,
+          irrigation_status: newFarmerIrrigationStatus || null,
+          irrigation_source: newFarmerIrrigationSource || null,
         } : undefined,
         itemId,
         qty,
-        paymentMethod: payMethod,
+        paymentMethod: methodToUse,
         paymentType: payType,
-        ...razorpayData,
+        ...paymentData,
       }),
     });
     const bookData = await bookRes.json();
@@ -271,6 +265,11 @@ export function CreateBookingForm({ farmers, items, mode = "both" }: CreateBooki
       setNewFarmerLandSize("");
       setNewFarmerLandUnit("acres");
       setNewFarmerLandType("");
+      setNewFarmerCropType("");
+      setNewFarmerGrowthStage("");
+      setNewFarmerHealthStatus("");
+      setNewFarmerIrrigationStatus("");
+      setNewFarmerIrrigationSource("");
     }
     setPaying(false);
   };
@@ -283,6 +282,14 @@ export function CreateBookingForm({ farmers, items, mode = "both" }: CreateBooki
     if (farmerMode === "new") {
       if (!newFarmerName || !newFarmerPhone) {
         setMsg({ text: "Please fill in Name and Phone for the new farmer.", type: "error" });
+        return;
+      }
+      if (!newFarmerPanCard) {
+        setMsg({ text: "PAN Card is required.", type: "error" });
+        return;
+      }
+      if (!newFarmerAadharCard) {
+        setMsg({ text: "Aadhar Card is required.", type: "error" });
         return;
       }
       if (!/^\d{10}$/.test(newFarmerPhone)) {
@@ -299,14 +306,13 @@ export function CreateBookingForm({ farmers, items, mode = "both" }: CreateBooki
     setMsg(null);
 
     try {
-      // Online: Razorpay flow
-      const loaded = await loadRazorpayScript();
-      if (!loaded) {
-        setMsg({ text: "Failed to load Razorpay. Check your internet connection.", type: "error" });
-        setPaying(false);
+      if (payType === "full") {
+        // Use Manual QR Code Trick for full payment
+        setShowQrModal(true);
         return;
       }
 
+      // Online: Cashfree flow for advance payment
       const receiptId = farmerMode === "existing" 
         ? `${payType}_${farmerId.slice(0, 8)}_${Date.now()}` 
         : `${payType}_new_${Date.now()}`;
@@ -318,13 +324,18 @@ export function CreateBookingForm({ farmers, items, mode = "both" }: CreateBooki
         ...(farmerMode === "existing" ? { farmer_id: farmerId } : { new_farmer: "true" })
       };
 
-      const orderRes = await fetch("/api/razorpay/create-order", {
+      const prefillName = farmerMode === "existing" ? (selectedFarmer?.name ?? "") : newFarmerName;
+      const prefillContact = farmerMode === "existing" ? (selectedFarmer?.phone ?? "") : newFarmerPhone;
+
+      const orderRes = await fetch("/api/cashfree/create-order", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
           amount: checkoutAmount,
           receipt: receiptId,
           notes,
+          customer_name: prefillName || "Guest",
+          customer_phone: prefillContact || "9999999999",
         }),
       });
 
@@ -335,45 +346,46 @@ export function CreateBookingForm({ farmers, items, mode = "both" }: CreateBooki
         return;
       }
 
-      const prefillName = farmerMode === "existing" ? (selectedFarmer?.name ?? "") : newFarmerName;
-      const prefillContact = farmerMode === "existing" ? (selectedFarmer?.phone ?? "") : newFarmerPhone;
+      const cashfree = await load({
+        mode: "sandbox", 
+      });
 
-      const options = {
-        key: process.env.NEXT_PUBLIC_RAZORPAY_KEY_ID ?? "",
-        amount: orderData.amount,
-        currency: orderData.currency,
-        name: "AgriTech ERP",
-        description: `${payType === "full" ? "Full Payment" : "Advance"} for ${selectedItem?.name} × ${qty}`,
-        order_id: orderData.orderId,
-        prefill: { name: prefillName, contact: prefillContact },
-        theme: { color: "#16a34a" },
-        handler: async function (response: any) {
-          startTransition(async () => {
-            await createBookingInDB({
-              razorpay_order_id: response.razorpay_order_id,
-              razorpay_payment_id: response.razorpay_payment_id,
-              razorpay_signature: response.razorpay_signature,
-            });
-          });
-        },
-        modal: {
-          ondismiss: () => {
-            setMsg({ text: "Payment cancelled. No booking was created.", type: "error" });
-            setPaying(false);
-          },
-        },
+      const checkoutOptions = {
+        paymentSessionId: orderData.paymentSessionId,
+        redirectTarget: "_modal",
       };
 
-      const rzp = new window.Razorpay(options);
-      rzp.on("payment.failed", (response: any) => {
-        setMsg({ text: `Payment failed: ${response.error.description}`, type: "error" });
-        setPaying(false);
+      cashfree.checkout(checkoutOptions).then((result: any) => {
+        if (result.error) {
+          setMsg({ text: `Payment failed: ${result.error.message}`, type: "error" });
+          setPaying(false);
+        }
+        if (result.redirect) {
+           console.log("Redirection");
+        }
+        if (result.paymentDetails) {
+          // Payment successful in modal
+          startTransition(async () => {
+            await createBookingInDB({
+              gateway_order_id: orderData.orderId,
+            });
+          });
+        }
       });
-      rzp.open();
     } catch (err: any) {
       setMsg({ text: err?.message ?? "An unexpected error occurred.", type: "error" });
       setPaying(false);
     }
+  };
+
+  const handleManualQrPaid = () => {
+    setShowQrModal(false);
+    startTransition(async () => {
+      await createBookingInDB({
+        gateway_order_id: "qr_payment",
+        method: "qr",
+      });
+    });
   };
 
   return (
@@ -465,17 +477,25 @@ export function CreateBookingForm({ farmers, items, mode = "both" }: CreateBooki
               />
             </div>
             <div className="space-y-2">
-              <Label htmlFor="newFarmerPanCard">PAN Card Number</Label>
+              <Label htmlFor="newFarmerPanCard">
+                PAN Card Number <span className="text-red-500">*</span>
+              </Label>
               <Input
                 id="newFarmerPanCard"
                 value={newFarmerPanCard}
                 onChange={(e) => setNewFarmerPanCard(e.target.value.toUpperCase())}
                 placeholder="ABCDE1234F"
                 maxLength={10}
+                className={!newFarmerPanCard ? "border-red-300 focus:border-red-400" : ""}
               />
+              {!newFarmerPanCard && (
+                <p className="text-xs text-red-500">PAN card is required</p>
+              )}
             </div>
             <div className="space-y-2">
-              <Label htmlFor="newFarmerAadharCard">Aadhar Card Number</Label>
+              <Label htmlFor="newFarmerAadharCard">
+                Aadhar Card Number <span className="text-red-500">*</span>
+              </Label>
               <Input
                 id="newFarmerAadharCard"
                 value={newFarmerAadharCard}
@@ -483,7 +503,11 @@ export function CreateBookingForm({ farmers, items, mode = "both" }: CreateBooki
                 placeholder="123456789012"
                 maxLength={12}
                 inputMode="numeric"
+                className={!newFarmerAadharCard ? "border-red-300 focus:border-red-400" : ""}
               />
+              {!newFarmerAadharCard && (
+                <p className="text-xs text-red-500">Aadhar card is required</p>
+              )}
             </div>
 
             {/* Land Details Section */}
@@ -524,6 +548,98 @@ export function CreateBookingForm({ farmers, items, mode = "both" }: CreateBooki
                       <SelectItem value="irrigated">Irrigated</SelectItem>
                       <SelectItem value="rainfed">Rainfed (Non-irrigated)</SelectItem>
                       <SelectItem value="mixed">Mixed</SelectItem>
+                    </SelectContent>
+                  </Select>
+                </div>
+              </div>
+            </div>
+
+            {/* Crop Information Section */}
+            <div className="md:col-span-2 border-t pt-4 mt-2">
+              <h4 className="text-xs font-semibold text-gray-500 uppercase tracking-wider mb-3">🌱 Crop Information</h4>
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                <div className="space-y-2">
+                  <Label htmlFor="newFarmerCropType">Crop Type (Optional)</Label>
+                  <Select value={newFarmerCropType} onValueChange={(v) => setNewFarmerCropType(v ?? "")}>
+                    <SelectTrigger id="newFarmerCropType">
+                      <SelectValue placeholder="Select crop" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="Papaya">Papaya</SelectItem>
+                      <SelectItem value="Banana">Banana</SelectItem>
+                      <SelectItem value="Sugarcane">Sugarcane</SelectItem>
+                      <SelectItem value="Tomato">Tomato</SelectItem>
+                      <SelectItem value="Cotton">Cotton</SelectItem>
+                      <SelectItem value="Other">Other</SelectItem>
+                    </SelectContent>
+                  </Select>
+                </div>
+                <div className="space-y-2">
+                  <Label htmlFor="newFarmerGrowthStage">Growth Stage</Label>
+                  <Select value={newFarmerGrowthStage} onValueChange={(v) => setNewFarmerGrowthStage(v ?? "")}>
+                    <SelectTrigger id="newFarmerGrowthStage">
+                      <SelectValue placeholder="Select stage" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="Seedling">Seedling (0-1 month)</SelectItem>
+                      <SelectItem value="Vegetative">Vegetative (1-3 months)</SelectItem>
+                      <SelectItem value="Flowering">Flowering</SelectItem>
+                      <SelectItem value="Fruiting">Fruiting</SelectItem>
+                      <SelectItem value="Harvesting">Harvesting</SelectItem>
+                    </SelectContent>
+                  </Select>
+                </div>
+                
+                <div className="space-y-3 md:col-span-2">
+                  <Label>Overall Health Status</Label>
+                  <div className="flex flex-wrap gap-4">
+                    {["Good", "Fair", "Poor"].map((status) => (
+                      <label key={status} className="flex items-center gap-2 border px-4 py-2 rounded-lg cursor-pointer hover:bg-gray-50 transition-colors">
+                        <input
+                          type="radio"
+                          name="health_status"
+                          value={status}
+                          checked={newFarmerHealthStatus === status}
+                          onChange={(e) => setNewFarmerHealthStatus(e.target.value)}
+                          className="text-green-600 focus:ring-green-500 w-4 h-4"
+                        />
+                        <span className="text-sm font-medium">{status}</span>
+                      </label>
+                    ))}
+                  </div>
+                </div>
+              </div>
+            </div>
+
+            {/* Irrigation Status Section */}
+            <div className="md:col-span-2 border-t pt-4 mt-2">
+              <h4 className="text-xs font-semibold text-gray-500 uppercase tracking-wider mb-3">💧 Irrigation Status</h4>
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                <div className="space-y-2">
+                  <Label htmlFor="newFarmerIrrigationStatus">Water Availability</Label>
+                  <Select value={newFarmerIrrigationStatus} onValueChange={(v) => setNewFarmerIrrigationStatus(v ?? "")}>
+                    <SelectTrigger id="newFarmerIrrigationStatus">
+                      <SelectValue placeholder="Select status" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="Adequate">Adequate</SelectItem>
+                      <SelectItem value="Deficit">Deficit</SelectItem>
+                      <SelectItem value="Excess">Excess / Flooded</SelectItem>
+                    </SelectContent>
+                  </Select>
+                </div>
+                <div className="space-y-2">
+                  <Label htmlFor="newFarmerIrrigationSource">Primary Water Source</Label>
+                  <Select value={newFarmerIrrigationSource} onValueChange={(v) => setNewFarmerIrrigationSource(v ?? "")}>
+                    <SelectTrigger id="newFarmerIrrigationSource">
+                      <SelectValue placeholder="Select source" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="Borewell">Borewell</SelectItem>
+                      <SelectItem value="Canal">Canal</SelectItem>
+                      <SelectItem value="River">River / Lake</SelectItem>
+                      <SelectItem value="Rainfed">Rainfed</SelectItem>
+                      <SelectItem value="Tank">Tank / Pond</SelectItem>
                     </SelectContent>
                   </Select>
                 </div>
@@ -641,7 +757,7 @@ export function CreateBookingForm({ farmers, items, mode = "both" }: CreateBooki
       <div className="space-y-2">
         <Label>Payment Method</Label>
         <div className="p-3 bg-gray-50 border border-gray-200 rounded-lg text-sm text-gray-700 flex items-center">
-          💳 Online Payment Only (via Razorpay)
+          💳 Online Payment Only (via Cashfree)
         </div>
       </div>
 
@@ -683,7 +799,7 @@ export function CreateBookingForm({ farmers, items, mode = "both" }: CreateBooki
             <span>₹{balanceAmount.toLocaleString("en-IN", { minimumFractionDigits: 2 })}</span>
           </div>
           <p className="text-xs text-gray-400">
-            💳 Razorpay will open for ₹{checkoutAmount.toFixed(2)}.
+            {payType === "full" ? "📷 A QR code will be displayed for manual payment verification." : `💳 Cashfree will open for ₹${checkoutAmount.toFixed(2)}.`}
           </p>
         </div>
       )}
@@ -738,7 +854,7 @@ export function CreateBookingForm({ farmers, items, mode = "both" }: CreateBooki
           qty <= 0 ||
           (uploading) ||
           (farmerMode === "existing" && !farmerId) ||
-          (farmerMode === "new" && (!newFarmerName || !newFarmerPhone))
+          (farmerMode === "new" && (!newFarmerName || !newFarmerPhone || !newFarmerPanCard || !newFarmerAadharCard))
         }
         className="w-full bg-green-600 hover:bg-green-700"
       >
@@ -748,6 +864,31 @@ export function CreateBookingForm({ farmers, items, mode = "both" }: CreateBooki
           ? `Pay ₹${checkoutAmount.toFixed(2)} & Generate Booking`
           : "Generate Booking"}
       </Button>
+
+      <Dialog open={showQrModal} onOpenChange={setShowQrModal}>
+        <DialogContent className="sm:max-w-md">
+          <DialogHeader>
+            <DialogTitle>Complete Payment via QR</DialogTitle>
+            <DialogDescription>
+              Please scan the QR code below to pay the full amount of ₹{checkoutAmount.toFixed(2)}. Once you have paid, click "OK, I have Paid".
+            </DialogDescription>
+          </DialogHeader>
+          <div className="flex justify-center p-4">
+            {/* Placeholder QR Code. Client can replace with actual QR image */}
+            <div className="w-64 h-64 border-4 border-green-500 rounded-xl bg-gray-50 flex items-center justify-center p-2 relative overflow-hidden">
+               <Image src={`https://api.qrserver.com/v1/create-qr-code/?size=250x250&data=upi://pay?pa=agritecherp@upi&pn=AgriTechERP&am=${checkoutAmount.toFixed(2)}`} fill alt="QR Code" className="object-contain" />
+            </div>
+          </div>
+          <DialogFooter className="flex gap-2 justify-end sm:justify-end">
+            <Button variant="outline" onClick={() => setShowQrModal(false)} disabled={isPending}>
+              Cancel
+            </Button>
+            <Button className="bg-green-600 hover:bg-green-700" onClick={handleManualQrPaid} disabled={isPending}>
+              {isPending ? "Processing..." : "OK, I have Paid"}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }

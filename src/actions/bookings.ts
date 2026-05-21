@@ -2,6 +2,7 @@
 
 import { createClient } from "@/lib/supabase/server";
 import { revalidatePath } from "next/cache";
+import { logTransaction } from "@/lib/transaction-logger";
 
 // Unique farmer ID: 10000 range + 5-retry fallback
 async function generateFarmerUniqueId(
@@ -41,6 +42,8 @@ export async function registerFarmer(data: FormData) {
   const irrigation_source = data.get("irrigation_source") as string | null;
 
   if (!name || !phone) return { error: "Name and phone are required." };
+  if (!pan_card) return { error: "PAN Card is required." };
+  if (!aadhar_card) return { error: "Aadhar Card is required." };
 
   // Phone validation (server-side)
   if (!/^\d{10}$/.test(phone)) {
@@ -108,7 +111,7 @@ export async function cancelBooking(bookingId: string) {
 
   const { data: profile } = await supabase
     .from("profiles")
-    .select("role")
+    .select("role, name")
     .eq("id", user.id)
     .single();
 
@@ -123,6 +126,43 @@ export async function cancelBooking(bookingId: string) {
     .eq("status", "Pending"); // only cancel pending ones
 
   if (error) return { error: error.message };
+
+  // — Transaction Logging —
+  // Fetch booking info for the log
+  const { data: bookingInfo } = await supabase
+    .from("bookings")
+    .select("total_amount, booking_amount, farmer_id, item_id")
+    .eq("id", bookingId)
+    .single();
+
+  if (bookingInfo) {
+    let farmerName = "Unknown";
+    let itemName = "Unknown";
+    if (bookingInfo.farmer_id) {
+      const { data: fInfo } = await supabase.from("farmers").select("name").eq("id", bookingInfo.farmer_id).single();
+      if (fInfo) farmerName = fInfo.name;
+    }
+    if (bookingInfo.item_id) {
+      const { data: iInfo } = await supabase.from("items").select("name").eq("id", bookingInfo.item_id).single();
+      if (iInfo) itemName = iInfo.name;
+    }
+
+    await logTransaction({
+      bookingId,
+      farmerId: bookingInfo.farmer_id || "",
+      action: "BOOKING_CANCELLED",
+      amount: Number(bookingInfo.total_amount || 0),
+      paymentMethod: null,
+      performedBy: user.id,
+      performerName: profile?.name || "Unknown",
+      performerRole: profile?.role || "Unknown",
+      metadata: {
+        item_name: itemName,
+        farmer_name: farmerName,
+        advance_paid: Number(bookingInfo.booking_amount || 0),
+      },
+    });
+  }
 
   revalidatePath("/telecaller");
   revalidatePath("/reports");

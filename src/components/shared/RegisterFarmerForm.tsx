@@ -122,19 +122,20 @@ export function RegisterFarmerForm() {
 
       {/* PAN Card */}
       <div className="space-y-2">
-        <Label htmlFor="pan_card">PAN Card Number (Optional)</Label>
+        <Label htmlFor="pan_card">PAN Card Number</Label>
         <Input
           id="pan_card"
           name="pan_card"
           placeholder="ABCDE1234F"
           maxLength={10}
           style={{ textTransform: 'uppercase' }}
+          required
         />
       </div>
 
       {/* Aadhar Card */}
       <div className="space-y-2">
-        <Label htmlFor="aadhar_card">Aadhar Card Number (Optional)</Label>
+        <Label htmlFor="aadhar_card">Aadhar Card Number</Label>
         <Input
           id="aadhar_card"
           name="aadhar_card"
@@ -143,6 +144,7 @@ export function RegisterFarmerForm() {
           maxLength={12}
           title="Enter exactly 12 digits"
           inputMode="numeric"
+          required
         />
       </div>
 

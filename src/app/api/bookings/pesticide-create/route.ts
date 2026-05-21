@@ -1,8 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { createClient } from "@/lib/supabase/server";
 import { createAdminClient } from "@/lib/supabase/admin";
-import crypto from "crypto";
-import Razorpay from "razorpay";
+import { logTransaction } from "@/lib/transaction-logger";
 
 export async function POST(req: NextRequest) {
   try {
@@ -18,7 +17,7 @@ export async function POST(req: NextRequest) {
 
     const { data: profile } = await supabase
       .from("profiles")
-      .select("role, district")
+      .select("role, district, name")
       .eq("id", user.id)
       .single();
 
@@ -38,9 +37,7 @@ export async function POST(req: NextRequest) {
       qty,
       paymentMethod = "online",
       paymentType = "advance",
-      razorpay_order_id,
-      razorpay_payment_id,
-      razorpay_signature,
+      gateway_order_id,
     } = body;
 
     if (!farmerId) {
@@ -50,7 +47,7 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ error: "Invalid pesticide booking inputs" }, { status: 400 });
     }
 
-    // Verify Razorpay signature only for online payments (and if amount > 0)
+    // Verify Cashfree payment status only for online payments (and if amount > 0)
     // We will verify the amount after fetching the pesticide details
     
     // Fetch pesticide rate
@@ -70,34 +67,46 @@ export async function POST(req: NextRequest) {
       ? total_amount 
       : Math.round(total_amount * 0.1 * 100) / 100;
     const balance_amount = Math.round((total_amount - booking_amount) * 100) / 100;
-
     if (paymentMethod === "online" && booking_amount > 0) {
-      if (!razorpay_order_id || !razorpay_payment_id || !razorpay_signature) {
-        return NextResponse.json({ error: "Missing Razorpay payment details" }, { status: 400 });
-      }
-      const key_secret = process.env.RAZORPAY_KEY_SECRET!;
-      const generatedSignature = crypto
-        .createHmac("sha256", key_secret)
-        .update(`${razorpay_order_id}|${razorpay_payment_id}`)
-        .digest("hex");
-
-      if (generatedSignature !== razorpay_signature) {
-        return NextResponse.json(
-          { error: "Payment verification failed. Please contact support." },
-          { status: 400 }
-        );
+      if (!gateway_order_id) {
+        return NextResponse.json({ error: "Missing Payment details" }, { status: 400 });
       }
 
-      const razorpay = new Razorpay({
-        key_id: process.env.NEXT_PUBLIC_RAZORPAY_KEY_ID!,
-        key_secret: process.env.RAZORPAY_KEY_SECRET!,
-      });
-      const order = await razorpay.orders.fetch(razorpay_order_id);
-      const expectedAmountPaise = Math.round(booking_amount * 100);
-      if (order.amount !== expectedAmountPaise) {
+      const appId = process.env.CASHFREE_APP_ID;
+      const secretKey = process.env.CASHFREE_SECRET_KEY;
+      const environment = process.env.CASHFREE_ENVIRONMENT || "SANDBOX";
+      const baseUrl = environment === "PRODUCTION" ? "https://api.cashfree.com/pg/orders" : "https://sandbox.cashfree.com/pg/orders";
+
+      try {
+        const response = await fetch(`${baseUrl}/${gateway_order_id}`, {
+          method: "GET",
+          headers: {
+            "x-api-version": "2023-08-01",
+            "x-client-id": appId!,
+            "x-client-secret": secretKey!,
+            "Content-Type": "application/json",
+            "Accept": "application/json",
+          },
+        });
+        const orderData = await response.json();
+        
+        if (!response.ok || orderData.order_status !== "PAID") {
+          return NextResponse.json(
+            { error: "Payment verification failed or payment not completed." },
+            { status: 400 }
+          );
+        }
+
+        if (Math.abs(orderData.order_amount - booking_amount) > 1) { // Allowing 1 INR difference max due to rounding
+           return NextResponse.json(
+             { error: "Payment amount mismatch detected. Verification failed." },
+             { status: 400 }
+           );
+        }
+      } catch (e) {
         return NextResponse.json(
-          { error: "Payment amount mismatch detected. Verification failed." },
-          { status: 400 }
+          { error: "Error verifying payment with payment gateway." },
+          { status: 500 }
         );
       }
     }
@@ -121,8 +130,7 @@ export async function POST(req: NextRequest) {
     };
 
     if (paymentMethod === "online" && booking_amount > 0) {
-      insertData.razorpay_order_id = razorpay_order_id ?? null;
-      insertData.razorpay_payment_id = razorpay_payment_id ?? null;
+      insertData.razorpay_order_id = gateway_order_id ?? null;
     }
 
     const adminClient = createAdminClient();
@@ -135,6 +143,54 @@ export async function POST(req: NextRequest) {
     if (insertError) {
       console.error(insertError);
       return NextResponse.json({ error: insertError.message }, { status: 500 });
+    }
+
+    // — Transaction Logging —
+    const pestBookingId = newBooking?.id;
+    if (pestBookingId) {
+      // Fetch farmer & pesticide name for metadata
+      let farmerName = "Unknown";
+      let pesticideName = "Unknown";
+      const { data: fInfo } = await supabase.from("farmers").select("name, unique_id").eq("id", farmerId).single();
+      if (fInfo) farmerName = fInfo.name;
+      const { data: pInfo } = await supabase.from("pesticide_inventory").select("name").eq("id", pesticideId).single();
+      if (pInfo) pesticideName = pInfo.name;
+
+      const pestMeta = {
+        item_name: pesticideName,
+        farmer_name: farmerName,
+        farmer_unique_id: fInfo?.unique_id || "",
+        booking_type: "pesticide",
+        payment_type: paymentType,
+        gateway_order_id: gateway_order_id || null,
+        qty,
+      };
+
+      await logTransaction({
+        bookingId: pestBookingId,
+        farmerId: farmerId,
+        action: "BOOKING_CREATED",
+        amount: total_amount,
+        paymentMethod,
+        performedBy: user.id,
+        performerName: profile?.name || user.email || "Unknown",
+        performerRole: profile?.role || "Unknown",
+        metadata: pestMeta,
+      });
+
+      if (booking_amount > 0) {
+        await logTransaction({
+          bookingId: pestBookingId,
+          farmerId: farmerId,
+          action: "ADVANCE_PAID",
+          amount: booking_amount,
+          paymentMethod,
+          performedBy: user.id,
+          performerName: profile?.name || user.email || "Unknown",
+          performerRole: profile?.role || "Unknown",
+          metadata: pestMeta,
+        });
+      }
     }
 
     return NextResponse.json({ success: true, bookingId: newBooking?.id });

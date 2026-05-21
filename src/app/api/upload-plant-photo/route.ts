@@ -52,8 +52,9 @@ export async function POST(req: NextRequest) {
   const arrayBuffer = await file.arrayBuffer();
   const buffer = Buffer.from(arrayBuffer);
 
-  // Generate a unique filename
-  const ext = file.name.split(".").pop() || "jpg";
+  // Derive extension from validated content-type (not user filename — prevents spoofing)
+  const extMap: Record<string, string> = { "image/jpeg": "jpg", "image/jpg": "jpg", "image/png": "png", "image/webp": "webp" };
+  const ext = extMap[file.type] || "jpg";
   const fileName = `${Date.now()}-${Math.random().toString(36).slice(2)}.${ext}`;
   const filePath = `reports/${fileName}`;
 
