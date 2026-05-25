@@ -32,13 +32,15 @@ export async function createUserAction(
   const name = data.get("name") as string;
   const phone = data.get("phone") as string;
   const role = data.get("role") as string;
+  const aadhar_card = data.get("aadhar_card") as string;
+  const pan_card = data.get("pan_card") as string;
   const district = (data.get("district") as string) || null;
   const taluka = (data.get("taluka") as string) || null;
   const villages_covered = parseInt(data.get("villages_covered") as string) || 0;
   const village_names = (data.get("village_names") as string) || null;
 
-  if (!email || !password || !name || !role) {
-    return { error: "All fields are required." };
+  if (!email || !password || !name || !role || !aadhar_card || !pan_card) {
+    return { error: "All fields are required, including Aadhar and PAN card." };
   }
 
   if (phone && !/^\d{10}$/.test(phone)) {
@@ -46,6 +48,8 @@ export async function createUserAction(
   }
 
   // Input length limits
+  if (!/^\d{12}$/.test(aadhar_card)) return { error: "Aadhar Card must be exactly 12 digits." };
+  if (pan_card.length > 10) return { error: "PAN Card is too long (max 10 chars)." };
   if (name.length > 200) return { error: "Name is too long (max 200 chars)." };
   if (email.length > 254) return { error: "Email is too long." };
   if (password.length > 128) return { error: "Password is too long (max 128 chars)." };
@@ -106,6 +110,8 @@ export async function createUserAction(
     district,
     taluka,
     unique_id,
+    aadhar_card,
+    pan_card: pan_card.toUpperCase(),
   };
 
   // Add village coverage for Field Officers

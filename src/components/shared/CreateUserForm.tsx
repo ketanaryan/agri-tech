@@ -70,6 +70,33 @@ export function CreateUserForm({
         </div>
       </div>
 
+      {/* KYC Details */}
+      <div className="grid grid-cols-2 gap-4">
+        <div className="space-y-2">
+          <Label htmlFor="cu-aadhar">Aadhar Card</Label>
+          <Input
+            id="cu-aadhar"
+            name="aadhar_card"
+            placeholder="12-digit number"
+            pattern="[0-9]{12}"
+            maxLength={12}
+            title="Enter exactly 12 digits"
+            required
+          />
+        </div>
+        <div className="space-y-2">
+          <Label htmlFor="cu-pan">PAN Card</Label>
+          <Input
+            id="cu-pan"
+            name="pan_card"
+            placeholder="ABCDE1234F"
+            maxLength={10}
+            className="uppercase"
+            required
+          />
+        </div>
+      </div>
+
       {/* Email + Password */}
       <div className="grid grid-cols-2 gap-4">
         <div className="space-y-2">
