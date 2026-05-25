@@ -45,18 +45,11 @@ export function CreateBookingForm({ farmers, items, mode = "both" }: CreateBooki
   const [newFarmerName, setNewFarmerName] = useState("");
   const [newFarmerPhone, setNewFarmerPhone] = useState("");
   const [newFarmerAddress, setNewFarmerAddress] = useState("");
-  const [newFarmerPanCard, setNewFarmerPanCard] = useState("");
-  const [newFarmerAadharCard, setNewFarmerAadharCard] = useState("");
   const [newFarmerAltPhone, setNewFarmerAltPhone] = useState("");
   const [newFarmerLandSize, setNewFarmerLandSize] = useState("");
   const [newFarmerLandUnit, setNewFarmerLandUnit] = useState("acres");
   const [newFarmerLandType, setNewFarmerLandType] = useState("");
-  const [newFarmerCropType, setNewFarmerCropType] = useState("");
-  const [newFarmerGrowthStage, setNewFarmerGrowthStage] = useState("");
-  const [newFarmerHealthStatus, setNewFarmerHealthStatus] = useState("");
-  const [newFarmerIrrigationStatus, setNewFarmerIrrigationStatus] = useState("");
-  const [newFarmerIrrigationSource, setNewFarmerIrrigationSource] = useState("");
-  
+
   // Photo Upload State
   const [photoPreview, setPhotoPreview] = useState<string | null>(null);
   const [photoUrl, setPhotoUrl] = useState<string>("");
@@ -142,17 +135,10 @@ export function CreateBookingForm({ farmers, items, mode = "both" }: CreateBooki
           phone: newFarmerPhone,
           address: newFarmerAddress,
           photo_url: photoUrl,
-          pan_card: newFarmerPanCard,
-          aadhar_card: newFarmerAadharCard,
           alternate_phone: newFarmerAltPhone,
           land_size: newFarmerLandSize ? parseFloat(newFarmerLandSize) : null,
           land_unit: newFarmerLandUnit || "acres",
           land_type: newFarmerLandType || null,
-          crop_type: newFarmerCropType || null,
-          growth_stage: newFarmerGrowthStage || null,
-          health_status: newFarmerHealthStatus || null,
-          irrigation_status: newFarmerIrrigationStatus || null,
-          irrigation_source: newFarmerIrrigationSource || null,
         } : undefined,
         itemId,
         qty,
@@ -265,11 +251,6 @@ export function CreateBookingForm({ farmers, items, mode = "both" }: CreateBooki
       setNewFarmerLandSize("");
       setNewFarmerLandUnit("acres");
       setNewFarmerLandType("");
-      setNewFarmerCropType("");
-      setNewFarmerGrowthStage("");
-      setNewFarmerHealthStatus("");
-      setNewFarmerIrrigationStatus("");
-      setNewFarmerIrrigationSource("");
     }
     setPaying(false);
   };
@@ -282,14 +263,6 @@ export function CreateBookingForm({ farmers, items, mode = "both" }: CreateBooki
     if (farmerMode === "new") {
       if (!newFarmerName || !newFarmerPhone) {
         setMsg({ text: "Please fill in Name and Phone for the new farmer.", type: "error" });
-        return;
-      }
-      if (!newFarmerPanCard) {
-        setMsg({ text: "PAN Card is required.", type: "error" });
-        return;
-      }
-      if (!newFarmerAadharCard) {
-        setMsg({ text: "Aadhar Card is required.", type: "error" });
         return;
       }
       if (!/^\d{10}$/.test(newFarmerPhone)) {
@@ -476,39 +449,6 @@ export function CreateBookingForm({ farmers, items, mode = "both" }: CreateBooki
                 placeholder="Village Name"
               />
             </div>
-            <div className="space-y-2">
-              <Label htmlFor="newFarmerPanCard">
-                PAN Card Number <span className="text-red-500">*</span>
-              </Label>
-              <Input
-                id="newFarmerPanCard"
-                value={newFarmerPanCard}
-                onChange={(e) => setNewFarmerPanCard(e.target.value.toUpperCase())}
-                placeholder="ABCDE1234F"
-                maxLength={10}
-                className={!newFarmerPanCard ? "border-red-300 focus:border-red-400" : ""}
-              />
-              {!newFarmerPanCard && (
-                <p className="text-xs text-red-500">PAN card is required</p>
-              )}
-            </div>
-            <div className="space-y-2">
-              <Label htmlFor="newFarmerAadharCard">
-                Aadhar Card Number <span className="text-red-500">*</span>
-              </Label>
-              <Input
-                id="newFarmerAadharCard"
-                value={newFarmerAadharCard}
-                onChange={(e) => setNewFarmerAadharCard(e.target.value.replace(/[^0-9]/g, ""))}
-                placeholder="123456789012"
-                maxLength={12}
-                inputMode="numeric"
-                className={!newFarmerAadharCard ? "border-red-300 focus:border-red-400" : ""}
-              />
-              {!newFarmerAadharCard && (
-                <p className="text-xs text-red-500">Aadhar card is required</p>
-              )}
-            </div>
 
             {/* Land Details Section */}
             <div className="md:col-span-2 border-t pt-4 mt-2">
@@ -548,98 +488,6 @@ export function CreateBookingForm({ farmers, items, mode = "both" }: CreateBooki
                       <SelectItem value="irrigated">Irrigated</SelectItem>
                       <SelectItem value="rainfed">Rainfed (Non-irrigated)</SelectItem>
                       <SelectItem value="mixed">Mixed</SelectItem>
-                    </SelectContent>
-                  </Select>
-                </div>
-              </div>
-            </div>
-
-            {/* Crop Information Section */}
-            <div className="md:col-span-2 border-t pt-4 mt-2">
-              <h4 className="text-xs font-semibold text-gray-500 uppercase tracking-wider mb-3">🌱 Crop Information</h4>
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                <div className="space-y-2">
-                  <Label htmlFor="newFarmerCropType">Crop Type (Optional)</Label>
-                  <Select value={newFarmerCropType} onValueChange={(v) => setNewFarmerCropType(v ?? "")}>
-                    <SelectTrigger id="newFarmerCropType">
-                      <SelectValue placeholder="Select crop" />
-                    </SelectTrigger>
-                    <SelectContent>
-                      <SelectItem value="Papaya">Papaya</SelectItem>
-                      <SelectItem value="Banana">Banana</SelectItem>
-                      <SelectItem value="Sugarcane">Sugarcane</SelectItem>
-                      <SelectItem value="Tomato">Tomato</SelectItem>
-                      <SelectItem value="Cotton">Cotton</SelectItem>
-                      <SelectItem value="Other">Other</SelectItem>
-                    </SelectContent>
-                  </Select>
-                </div>
-                <div className="space-y-2">
-                  <Label htmlFor="newFarmerGrowthStage">Growth Stage</Label>
-                  <Select value={newFarmerGrowthStage} onValueChange={(v) => setNewFarmerGrowthStage(v ?? "")}>
-                    <SelectTrigger id="newFarmerGrowthStage">
-                      <SelectValue placeholder="Select stage" />
-                    </SelectTrigger>
-                    <SelectContent>
-                      <SelectItem value="Seedling">Seedling (0-1 month)</SelectItem>
-                      <SelectItem value="Vegetative">Vegetative (1-3 months)</SelectItem>
-                      <SelectItem value="Flowering">Flowering</SelectItem>
-                      <SelectItem value="Fruiting">Fruiting</SelectItem>
-                      <SelectItem value="Harvesting">Harvesting</SelectItem>
-                    </SelectContent>
-                  </Select>
-                </div>
-                
-                <div className="space-y-3 md:col-span-2">
-                  <Label>Overall Health Status</Label>
-                  <div className="flex flex-wrap gap-4">
-                    {["Good", "Fair", "Poor"].map((status) => (
-                      <label key={status} className="flex items-center gap-2 border px-4 py-2 rounded-lg cursor-pointer hover:bg-gray-50 transition-colors">
-                        <input
-                          type="radio"
-                          name="health_status"
-                          value={status}
-                          checked={newFarmerHealthStatus === status}
-                          onChange={(e) => setNewFarmerHealthStatus(e.target.value)}
-                          className="text-green-600 focus:ring-green-500 w-4 h-4"
-                        />
-                        <span className="text-sm font-medium">{status}</span>
-                      </label>
-                    ))}
-                  </div>
-                </div>
-              </div>
-            </div>
-
-            {/* Irrigation Status Section */}
-            <div className="md:col-span-2 border-t pt-4 mt-2">
-              <h4 className="text-xs font-semibold text-gray-500 uppercase tracking-wider mb-3">💧 Irrigation Status</h4>
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                <div className="space-y-2">
-                  <Label htmlFor="newFarmerIrrigationStatus">Water Availability</Label>
-                  <Select value={newFarmerIrrigationStatus} onValueChange={(v) => setNewFarmerIrrigationStatus(v ?? "")}>
-                    <SelectTrigger id="newFarmerIrrigationStatus">
-                      <SelectValue placeholder="Select status" />
-                    </SelectTrigger>
-                    <SelectContent>
-                      <SelectItem value="Adequate">Adequate</SelectItem>
-                      <SelectItem value="Deficit">Deficit</SelectItem>
-                      <SelectItem value="Excess">Excess / Flooded</SelectItem>
-                    </SelectContent>
-                  </Select>
-                </div>
-                <div className="space-y-2">
-                  <Label htmlFor="newFarmerIrrigationSource">Primary Water Source</Label>
-                  <Select value={newFarmerIrrigationSource} onValueChange={(v) => setNewFarmerIrrigationSource(v ?? "")}>
-                    <SelectTrigger id="newFarmerIrrigationSource">
-                      <SelectValue placeholder="Select source" />
-                    </SelectTrigger>
-                    <SelectContent>
-                      <SelectItem value="Borewell">Borewell</SelectItem>
-                      <SelectItem value="Canal">Canal</SelectItem>
-                      <SelectItem value="River">River / Lake</SelectItem>
-                      <SelectItem value="Rainfed">Rainfed</SelectItem>
-                      <SelectItem value="Tank">Tank / Pond</SelectItem>
                     </SelectContent>
                   </Select>
                 </div>
@@ -854,7 +702,7 @@ export function CreateBookingForm({ farmers, items, mode = "both" }: CreateBooki
           qty <= 0 ||
           (uploading) ||
           (farmerMode === "existing" && !farmerId) ||
-          (farmerMode === "new" && (!newFarmerName || !newFarmerPhone || !newFarmerPanCard || !newFarmerAadharCard))
+          (farmerMode === "new" && (!newFarmerName || !newFarmerPhone))
         }
         className="w-full bg-green-600 hover:bg-green-700"
       >

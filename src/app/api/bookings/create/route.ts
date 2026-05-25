@@ -61,12 +61,6 @@ export async function POST(req: NextRequest) {
     if (farmerMode === "new" && (!newFarmerData?.name || !newFarmerData?.phone)) {
       return NextResponse.json({ error: "New farmer data incomplete" }, { status: 400 });
     }
-    if (farmerMode === "new" && !newFarmerData?.pan_card) {
-      return NextResponse.json({ error: "PAN Card is required for new farmer registration" }, { status: 400 });
-    }
-    if (farmerMode === "new" && !newFarmerData?.aadhar_card) {
-      return NextResponse.json({ error: "Aadhar Card is required for new farmer registration" }, { status: 400 });
-    }
     if (!itemId || !qty || qty <= 0) {
       return NextResponse.json({ error: "Invalid booking inputs" }, { status: 400 });
     }
@@ -79,8 +73,6 @@ export async function POST(req: NextRequest) {
       if (newFarmerData?.name?.length > 200) return NextResponse.json({ error: "Farmer name too long" }, { status: 400 });
       if (newFarmerData?.phone?.length > 15) return NextResponse.json({ error: "Phone number too long" }, { status: 400 });
       if (newFarmerData?.address?.length > 500) return NextResponse.json({ error: "Address too long" }, { status: 400 });
-      if (newFarmerData?.pan_card?.length > 10) return NextResponse.json({ error: "PAN card number too long" }, { status: 400 });
-      if (newFarmerData?.aadhar_card?.length > 12) return NextResponse.json({ error: "Aadhar card number too long" }, { status: 400 });
     }
 
     // Fetch item rate first to calculate expected payment amounts
