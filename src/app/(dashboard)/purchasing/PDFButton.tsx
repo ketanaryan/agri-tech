@@ -131,7 +131,7 @@ export function PDFButton({ booking }: { booking: BookingInfo }) {
     }
 
     // Generate WhatsApp Text
-    let text = `Hello ${booking.farmer?.name || "Farmer"},\nYour AgriTech ERP Delivery is Complete.\nFarmer ID: ${booking.farmer?.unique_id || "N/A"}\nItem: ${booking.item?.name || "N/A"}\nQuantity: ${booking.qty}\nTotal Cost: ₹${booking.total_amount?.toLocaleString("en-IN")}\nBalance Paid: ₹${booking.balance_amount?.toLocaleString("en-IN")}\n`;
+    let text = `Hello ${booking.farmer?.name || "Farmer"},\nYour Bioeagle Petroleum Delivery is Complete.\nFarmer ID: ${booking.farmer?.unique_id || "N/A"}\nItem: ${booking.item?.name || "N/A"}\nQuantity: ${booking.qty}\nTotal Cost: ₹${booking.total_amount?.toLocaleString("en-IN")}\nBalance Paid: ₹${booking.balance_amount?.toLocaleString("en-IN")}\n`;
     if (remoteUrl) {
       text += `\nDownload Final Slip: ${remoteUrl}\n`;
     }

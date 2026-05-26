@@ -7,14 +7,14 @@ import { PWARegister } from "@/components/shared/PWARegister";
 const geist = Geist({ subsets: ["latin"], variable: "--font-sans" });
 
 export const metadata: Metadata = {
-  title: "AgriTech ERP — Agricultural Management Platform",
+  title: "Bioeagle Petroleum Pvt Ltd — Agricultural Division",
   description:
-    "Manage your cooperative, track crops, register farmers, and empower field operations with AgriTech ERP.",
+    "Manage your cooperative, track crops, register farmers, and empower field operations with Bioeagle Petroleum Pvt Ltd.",
   manifest: "/manifest.json",
   appleWebApp: {
     capable: true,
     statusBarStyle: "default",
-    title: "AgriTech ERP",
+    title: "Bioeagle Petroleum Pvt Ltd",
   },
   other: {
     "mobile-web-app-capable": "yes",

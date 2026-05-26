@@ -161,7 +161,7 @@ export function CreateBookingForm({ farmers, items, mode = "both" }: CreateBooki
       const doc = new jsPDF();
       doc.setFontSize(22);
       doc.setTextColor(22, 163, 74); // green-600
-      doc.text("AgriTech ERP - Official Receipt", 20, 20);
+      doc.text("Bioeagle Petroleum Pvt Ltd - Official Receipt", 20, 20);
 
       doc.setFontSize(12);
       doc.setTextColor(0, 0, 0);
@@ -224,7 +224,7 @@ export function CreateBookingForm({ farmers, items, mode = "both" }: CreateBooki
 
       const waReplacementQty = Math.floor(qty * 0.1);
       const waTotalDelivered = qty + waReplacementQty;
-      let waText = `Hello ${fName},\nYour AgriTech ERP Booking is Confirmed! 🌱\n\nFarmer ID: ${fUid}\nItem: ${itemName}\n\n📦 Ordered: ${qty} plants\n🎁 Free Replacement (10%): ${waReplacementQty} plants\n✅ Total Delivery: ${waTotalDelivered} plants\n\n💰 ${payType === "full" ? "Total Paid" : "Advance Paid"}: ₹${checkoutAmount.toLocaleString("en-IN", { minimumFractionDigits: 2 })}\n💵 Balance Due at Delivery: ₹${balanceAmount.toLocaleString("en-IN", { minimumFractionDigits: 2 })}\n`;
+      let waText = `Hello ${fName},\nYour Bioeagle Petroleum Booking is Confirmed! 🌱\n\nFarmer ID: ${fUid}\nItem: ${itemName}\n\n📦 Ordered: ${qty} plants\n🎁 Free Replacement (10%): ${waReplacementQty} plants\n✅ Total Delivery: ${waTotalDelivered} plants\n\n💰 ${payType === "full" ? "Total Paid" : "Advance Paid"}: ₹${checkoutAmount.toLocaleString("en-IN", { minimumFractionDigits: 2 })}\n💵 Balance Due at Delivery: ₹${balanceAmount.toLocaleString("en-IN", { minimumFractionDigits: 2 })}\n`;
       if (publicReceiptUrl) {
          waText += `\n📄 Download Receipt: ${publicReceiptUrl}\n`;
       }
