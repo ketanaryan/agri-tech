@@ -21,7 +21,7 @@ export default function LandingPage() {
               </div>
             </div>
             <div className="flex items-center gap-4">
-              <Link
+              <a
                 href="/login"
                 className="group relative inline-flex items-center justify-center px-6 py-2.5 text-sm font-medium text-white transition-all duration-200 bg-blue-900 rounded-full hover:bg-blue-800 hover:shadow-lg hover:shadow-blue-900/20 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-900 overflow-hidden"
               >
@@ -29,7 +29,7 @@ export default function LandingPage() {
                   Portal Login
                   <ArrowRight className="w-4 h-4 group-hover:translate-x-1 transition-transform" />
                 </span>
-              </Link>
+              </a>
             </div>
           </div>
         </div>
@@ -60,18 +60,18 @@ export default function LandingPage() {
               </p>
               
               <div className="flex flex-col sm:flex-row items-center justify-center gap-4">
-                <Link
+                <a
                   href="#products"
                   className="w-full sm:w-auto px-8 py-4 text-base font-semibold text-white bg-gradient-to-r from-green-600 to-green-500 rounded-full hover:shadow-xl hover:shadow-green-500/20 transition-all duration-300 transform hover:-translate-y-1"
                 >
                   Explore Products
-                </Link>
-                <Link
+                </a>
+                <a
                   href="/login"
                   className="w-full sm:w-auto px-8 py-4 text-base font-semibold text-blue-900 bg-white border border-blue-100 rounded-full hover:bg-blue-50 transition-all duration-300"
                 >
                   Access ERP Portal
-                </Link>
+                </a>
               </div>
             </div>
           </div>
