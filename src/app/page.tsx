@@ -1,8 +1,35 @@
 import Link from "next/link";
 import Image from "next/image";
 import { ArrowRight, Leaf, Droplets, Sun, Sprout } from "lucide-react";
+import { redirect } from "next/navigation";
+import { createClient } from "@/lib/supabase/server";
 
-export default function LandingPage() {
+export default async function Home() {
+  const supabase = await createClient();
+  const { data: { user } } = await supabase.auth.getUser();
+
+  if (user) {
+    const { data: profile } = await supabase
+      .from("profiles")
+      .select("role")
+      .eq("id", user.id)
+      .single();
+
+    if (profile) {
+      switch (profile.role) {
+        case "Admin": redirect("/admin");
+        case "FieldOfficer": redirect("/bookings");
+        case "Leader": redirect("/leader");
+        case "Telecaller": redirect("/telecaller");
+        case "Counselor": redirect("/counselor");
+      }
+    }
+  }
+
+  return <LandingPageUI />;
+}
+
+function LandingPageUI() {
   return (
     <div className="min-h-screen bg-gradient-to-b from-gray-50 to-white selection:bg-green-200">
       {/* Navigation */}
