@@ -58,8 +58,13 @@ export default function LoginPage() {
       </div>
 
       <Card className="w-full max-w-md shadow-xl border-green-100 relative z-10">
-        <CardHeader className="space-y-3 text-center pb-4">
-          <div className="flex justify-center">
+        <CardHeader className="space-y-3 text-center pb-4 relative">
+          <div className="absolute left-4 top-4">
+            <a href="/" className="text-xs font-medium text-gray-500 hover:text-green-700 flex items-center gap-1 transition-colors">
+              &larr; Back to Home
+            </a>
+          </div>
+          <div className="flex justify-center mt-2">
             <img 
               src="/logo.png" 
               alt="BEP Logo" 
