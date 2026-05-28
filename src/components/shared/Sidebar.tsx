@@ -152,7 +152,7 @@ export function Sidebar({ role }: SidebarProps) {
         {/* Footer branding */}
         <div className="p-4 border-t border-green-100">
           <p className="text-[10px] text-gray-400 text-center">
-            Bioeagle Petroleum v1.0
+            Bio Eagle Petroleum v1.0
           </p>
         </div>
       </div>

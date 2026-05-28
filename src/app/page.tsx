@@ -42,7 +42,7 @@ function LandingPageUI() {
               </div>
               <div className="flex flex-col">
                 <span className="font-bold text-xl text-blue-950 tracking-tight leading-none">
-                  Bioeagle Petroleum
+                  Bio Eagle Petroleum
                 </span>
                 <span className="text-sm font-medium text-green-600">Agricultural Division</span>
               </div>
@@ -83,7 +83,7 @@ function LandingPageUI() {
                 </span>
               </h1>
               <p className="text-xl text-gray-600 mb-10 max-w-2xl mx-auto leading-relaxed">
-                Bioeagle Petroleum Pvt Ltd's Agricultural Division specializes in high-yield, organic farming. We deliver top-tier plants and comprehensive agricultural management.
+                Bio Eagle Petroleum Pvt Ltd's Agricultural Division specializes in high-yield, organic farming. We deliver top-tier plants and comprehensive agricultural management.
               </p>
               
               <div className="flex flex-col sm:flex-row items-center justify-center gap-4">
@@ -214,9 +214,9 @@ function LandingPageUI() {
               <div className="relative w-8 h-8 opacity-50 grayscale">
                 <Image src="/logo.png" alt="Bioeagle Logo" fill className="object-contain" />
               </div>
-              <span className="font-semibold text-gray-900">Bioeagle Petroleum Pvt Ltd</span>
+              <span className="font-semibold text-gray-900">Bio Eagle Petroleum Pvt Ltd</span>
             </div>
-            <p>© {new Date().getFullYear()} Bioeagle Petroleum Pvt Ltd - Agricultural Division. All rights reserved.</p>
+            <p>© {new Date().getFullYear()} Bio Eagle Petroleum Pvt Ltd - Agricultural Division. All rights reserved.</p>
           </div>
         </footer>
       </main>

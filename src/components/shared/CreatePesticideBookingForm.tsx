@@ -90,7 +90,7 @@ export function CreatePesticideBookingForm({ farmers, pesticides }: CreatePestic
       const doc = new jsPDF();
       doc.setFontSize(22);
       doc.setTextColor(22, 163, 74); // green-600
-      doc.text("Bioeagle Petroleum Pvt Ltd - Official Receipt", 20, 20);
+      doc.text("Bio Eagle Petroleum Pvt Ltd - Official Receipt", 20, 20);
 
       doc.setFontSize(12);
       doc.setTextColor(0, 0, 0);
@@ -147,7 +147,7 @@ export function CreatePesticideBookingForm({ farmers, pesticides }: CreatePestic
         console.error("Failed to upload receipt", e);
       }
 
-      let waText = `Hello ${fName},\nYour Bioeagle Petroleum Pesticide Booking is Confirmed! 🌱\n\nFarmer ID: ${fUid}\nPesticide: ${itemName}\n\n📦 Ordered: ${qty} ${selectedPesticide?.unit}\n✅ Total Delivery: ${totalDelivered} ${selectedPesticide?.unit}\n\n💰 ${payType === "full" ? "Total Paid" : "Advance Paid"}: ₹${checkoutAmount.toLocaleString("en-IN", { minimumFractionDigits: 2 })}\n💵 Balance Due at Delivery: ₹${balanceAmount.toLocaleString("en-IN", { minimumFractionDigits: 2 })}\n`;
+      let waText = `Hello ${fName},\nYour Bio Eagle Petroleum Pesticide Booking is Confirmed! 🌱\n\nFarmer ID: ${fUid}\nPesticide: ${itemName}\n\n📦 Ordered: ${qty} ${selectedPesticide?.unit}\n✅ Total Delivery: ${totalDelivered} ${selectedPesticide?.unit}\n\n💰 ${payType === "full" ? "Total Paid" : "Advance Paid"}: ₹${checkoutAmount.toLocaleString("en-IN", { minimumFractionDigits: 2 })}\n💵 Balance Due at Delivery: ₹${balanceAmount.toLocaleString("en-IN", { minimumFractionDigits: 2 })}\n`;
       if (publicReceiptUrl) {
          waText += `\n📄 Download Receipt: ${publicReceiptUrl}\n`;
       }

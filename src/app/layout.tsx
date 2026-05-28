@@ -7,14 +7,14 @@ import { PWARegister } from "@/components/shared/PWARegister";
 const geist = Geist({ subsets: ["latin"], variable: "--font-sans" });
 
 export const metadata: Metadata = {
-  title: "Bioeagle Petroleum Pvt Ltd — Agricultural Division",
+  title: "Bio Eagle Petroleum Pvt Ltd — Agricultural Division",
   description:
-    "Manage your cooperative, track crops, register farmers, and empower field operations with Bioeagle Petroleum Pvt Ltd.",
+    "Manage your cooperative, track crops, register farmers, and empower field operations with Bio Eagle Petroleum Pvt Ltd.",
   manifest: "/manifest.json",
   appleWebApp: {
     capable: true,
     statusBarStyle: "default",
-    title: "Bioeagle Petroleum Pvt Ltd",
+    title: "Bio Eagle Petroleum Pvt Ltd",
   },
   other: {
     "mobile-web-app-capable": "yes",

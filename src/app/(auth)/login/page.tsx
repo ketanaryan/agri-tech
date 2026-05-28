@@ -73,7 +73,7 @@ export default function LoginPage() {
           </div>
           <div>
             <CardTitle className="text-2xl font-bold tracking-tight text-green-900">
-              Bioeagle Petroleum Pvt Ltd
+              Bio Eagle Petroleum Pvt Ltd
             </CardTitle>
             <CardDescription className="mt-1 text-sm text-gray-500">
               Sign in with your User ID or Email
