@@ -42,7 +42,7 @@ function LandingPageUI() {
               </div>
               <div className="flex flex-col">
                 <span className="font-bold text-xl text-blue-950 tracking-tight leading-none">
-                  Bio Eagle Petroleum
+                  Bio Eagle Petroleum Pvt Ltd
                 </span>
                 <span className="text-sm font-medium text-green-600">Agricultural Division</span>
               </div>
