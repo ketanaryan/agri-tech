@@ -47,6 +47,8 @@ export async function POST(req: NextRequest) {
     if (!pesticideId || !qty || qty <= 0) {
       return NextResponse.json({ error: "Invalid pesticide booking inputs" }, { status: 400 });
     }
+    if (utr_number && utr_number.length > 50) return NextResponse.json({ error: "UTR number too long" }, { status: 400 });
+    if (payment_receipt_url && payment_receipt_url.length > 1000) return NextResponse.json({ error: "Receipt URL too long" }, { status: 400 });
 
     // Verify Cashfree payment status only for online payments (and if amount > 0)
     // We will verify the amount after fetching the pesticide details

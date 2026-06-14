@@ -75,6 +75,8 @@ export async function POST(req: NextRequest) {
       if (newFarmerData?.phone?.length > 15) return NextResponse.json({ error: "Phone number too long" }, { status: 400 });
       if (newFarmerData?.address?.length > 500) return NextResponse.json({ error: "Address too long" }, { status: 400 });
     }
+    if (utr_number && utr_number.length > 50) return NextResponse.json({ error: "UTR number too long" }, { status: 400 });
+    if (payment_receipt_url && payment_receipt_url.length > 1000) return NextResponse.json({ error: "Receipt URL too long" }, { status: 400 });
 
     // Fetch item rate first to calculate expected payment amounts
     const { data: item, error: itemError } = await supabase
