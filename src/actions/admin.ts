@@ -147,6 +147,10 @@ export async function createItem(data: FormData) {
   const rate_per_unit = parseFloat(data.get("rate_per_unit") as string);
   const advance_percentage = parseFloat(data.get("advance_percentage") as string || "10");
   if (!name || isNaN(rate_per_unit) || isNaN(advance_percentage)) return { error: "Invalid item data" };
+  
+  if (name.length > 200) return { error: "Name is too long." };
+  if (rate_per_unit < 0 || rate_per_unit > 1000000) return { error: "Invalid rate per unit." };
+  if (advance_percentage < 0 || advance_percentage > 100) return { error: "Invalid advance percentage." };
 
   const { createClient } = await import("@/lib/supabase/server");
   const supabase = await createClient();
@@ -179,6 +183,10 @@ export async function deleteItem(id: string) {
   const supabase = await createClient();
   const { data: userData, error: userError } = await supabase.auth.getUser();
   if (userError || !userData?.user) return { error: "Unauthorized caller" };
+
+  if (!/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(id)) {
+    return { error: "Invalid item ID format" };
+  }
 
   const { data: profile } = await supabase
     .from("profiles")

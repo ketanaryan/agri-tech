@@ -25,6 +25,20 @@ export async function logTelecallerAction(formData: FormData) {
     return { error: "Missing required fields" };
   }
 
+  if (!/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(bookingId)) {
+    return { error: "Invalid booking ID format" };
+  }
+  if (farmer_id && !/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(farmer_id)) {
+    return { error: "Invalid farmer ID format" };
+  }
+  if (notes && notes.length > 2000) return { error: "Notes too long (max 2000 chars)." };
+  if (forward_to && forward_to.length > 200) return { error: "Forward to too long." };
+  if (telecaller_name && telecaller_name.length > 200) return { error: "Telecaller name too long." };
+  if (call_response && call_response.length > 1000) return { error: "Call response too long." };
+  if (call_duration_mins !== null && (call_duration_mins < 0 || call_duration_mins > 10000)) {
+    return { error: "Invalid call duration." };
+  }
+
   const supabase = await createClient();
   const { data: { user } } = await supabase.auth.getUser();
 

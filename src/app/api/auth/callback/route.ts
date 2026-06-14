@@ -6,7 +6,9 @@ export async function GET(request: Request) {
   const code = searchParams.get('code')
   
   // if "next" is in param, use it as the redirect URL
-  const next = searchParams.get('next') ?? '/'
+  // Ensure next starts with a single slash and is not a protocol-relative URL
+  const rawNext = searchParams.get('next') ?? '/'
+  const next = rawNext.startsWith('/') && !rawNext.startsWith('//') ? rawNext : '/'
 
   if (code) {
     const supabase = await createClient()

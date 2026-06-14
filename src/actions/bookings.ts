@@ -45,6 +45,17 @@ export async function registerFarmer(data: FormData) {
   if (!pan_card) return { error: "PAN Card is required." };
   if (!aadhar_card) return { error: "Aadhar Card is required." };
 
+  if (name.length > 200) return { error: "Name is too long." };
+  if (address && address.length > 500) return { error: "Address is too long." };
+  if (pan_card.length > 10) return { error: "PAN Card is too long." };
+  if (!/^\d{12}$/.test(aadhar_card)) return { error: "Aadhar must be 12 digits." };
+  if (crop_type && crop_type.length > 100) return { error: "Crop type too long." };
+  if (growth_stage && growth_stage.length > 100) return { error: "Growth stage too long." };
+  if (health_status && health_status.length > 100) return { error: "Health status too long." };
+  if (irrigation_status && irrigation_status.length > 100) return { error: "Irrigation status too long." };
+  if (irrigation_source && irrigation_source.length > 100) return { error: "Irrigation source too long." };
+  if (land_size !== null && (land_size < 0 || land_size > 10000)) return { error: "Invalid land size." };
+
   // Phone validation (server-side)
   if (!/^\d{10}$/.test(phone)) {
     return { error: "Phone number must be exactly 10 digits." };
@@ -108,6 +119,10 @@ export async function cancelBooking(bookingId: string) {
     data: { user },
   } = await supabase.auth.getUser();
   if (!user) return { error: "Not authenticated" };
+
+  if (!/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(bookingId)) {
+    return { error: "Invalid booking ID format" };
+  }
 
   const { data: profile } = await supabase
     .from("profiles")

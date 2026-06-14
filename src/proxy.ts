@@ -6,6 +6,26 @@ export async function proxy(request: NextRequest) {
     request,
   })
 
+  // Basic CSRF Protection for API routes (POST, PUT, DELETE, PATCH)
+  if (request.nextUrl.pathname.startsWith('/api/') && !['GET', 'OPTIONS'].includes(request.method)) {
+    const origin = request.headers.get('origin');
+    const host = request.headers.get('host');
+    
+    // If an Origin header is present, ensure it matches the Host header.
+    // Next.js Server Actions already do this inherently, but API routes need it manually.
+    if (origin && host) {
+      try {
+        const originUrl = new URL(origin);
+        // Note: host may contain port (e.g., localhost:3000)
+        if (originUrl.host !== host) {
+          return NextResponse.json({ error: 'CSRF validation failed: Origin mismatch' }, { status: 403 });
+        }
+      } catch (e) {
+        return NextResponse.json({ error: 'CSRF validation failed: Invalid Origin' }, { status: 403 });
+      }
+    }
+  }
+
   const supabase = createServerClient(
     process.env.NEXT_PUBLIC_SUPABASE_URL!,
     process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
@@ -15,7 +35,7 @@ export async function proxy(request: NextRequest) {
           return request.cookies.getAll()
         },
         setAll(cookiesToSet) {
-          cookiesToSet.forEach(({ name, value, options }) => request.cookies.set(name, value))
+          cookiesToSet.forEach(({ name, value }) => request.cookies.set(name, value))
           supabaseResponse = NextResponse.next({
             request,
           })

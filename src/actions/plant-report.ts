@@ -16,6 +16,16 @@ export async function submitPlantReport(formData: FormData) {
     return { success: false, error: "Unauthorized" };
   }
 
+  const { data: profile } = await supabase
+    .from("profiles")
+    .select("role")
+    .eq("id", user.id)
+    .single();
+
+  if (profile?.role !== "FieldOfficer" && profile?.role !== "Admin") {
+    return { success: false, error: "Forbidden: Only Field Officers can submit reports." };
+  }
+
   const farmerId = formData.get("farmer_id")?.toString();
   const plantsDelivered = Number(formData.get("plants_delivered"));
   const status = formData.get("status")?.toString();
@@ -27,29 +37,39 @@ export async function submitPlantReport(formData: FormData) {
   const pesticideId = formData.get("pesticide_id")?.toString() || null;
   const pesticideQty = parseFloat(formData.get("pesticide_quantity")?.toString() || "0");
 
-  if (!farmerId || isNaN(plantsDelivered) || !status) {
-    return { success: false, error: "Missing required fields" };
+  if (!farmerId || isNaN(plantsDelivered) || plantsDelivered < 0 || plantsDelivered > 1000000 || !status) {
+    return { success: false, error: "Invalid or missing required fields" };
+  }
+
+  if (remarks && remarks.length > 2000) {
+    return { success: false, error: "Remarks too long (max 2000 chars)." };
   }
 
   // Validate pesticide qty if pesticide was given
-  if (pesticideGiven && pesticideId && (isNaN(pesticideQty) || pesticideQty <= 0)) {
+  if (pesticideGiven && pesticideId && (isNaN(pesticideQty) || pesticideQty <= 0 || pesticideQty > 100000)) {
     return { success: false, error: "Please enter a valid pesticide quantity used." };
   }
 
   let photos: string[] = [];
   if (photosJson) {
     try {
-      photos = JSON.parse(photosJson);
+      const parsed = JSON.parse(photosJson);
+      if (Array.isArray(parsed)) {
+        // Validate each photo is a valid URL string and max 10 photos
+        photos = parsed
+          .filter(p => typeof p === "string" && (p.startsWith("http://") || p.startsWith("https://")))
+          .slice(0, 10);
+      }
     } catch (e) {
       console.error("Invalid photos json", e);
     }
   }
 
-  const crop_type = formData.get("crop_type")?.toString();
-  const growth_stage = formData.get("growth_stage")?.toString();
-  const health_status = formData.get("health_status")?.toString();
-  const irrigation_status = formData.get("irrigation_status")?.toString();
-  const irrigation_source = formData.get("irrigation_source")?.toString();
+  const crop_type = formData.get("crop_type")?.toString()?.slice(0, 100);
+  const growth_stage = formData.get("growth_stage")?.toString()?.slice(0, 100);
+  const health_status = formData.get("health_status")?.toString()?.slice(0, 100);
+  const irrigation_status = formData.get("irrigation_status")?.toString()?.slice(0, 100);
+  const irrigation_source = formData.get("irrigation_source")?.toString()?.slice(0, 100);
 
   // Verify farmer exists
   const { data: farmer, error: farmerError } = await supabase

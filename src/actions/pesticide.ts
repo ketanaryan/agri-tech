@@ -28,6 +28,10 @@ export async function addPesticide(data: FormData) {
     if (!name || isNaN(current_stock) || isNaN(low_stock_threshold)) {
       return { error: "All fields are required." };
     }
+    if (name.length > 200) return { error: "Name is too long." };
+    if (unit.length > 50) return { error: "Unit is too long." };
+    if (current_stock < 0 || current_stock > 1000000) return { error: "Invalid current stock amount." };
+    if (low_stock_threshold < 0 || low_stock_threshold > 1000000) return { error: "Invalid low stock threshold." };
 
     const adminClient = createAdminClient();
     const { error } = await adminClient
@@ -46,6 +50,8 @@ export async function addPesticide(data: FormData) {
 export async function adjustPesticideStock(id: string, delta: number) {
   try {
     await requireAdmin();
+    if (!/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(id)) return { error: "Invalid pesticide ID" };
+    if (isNaN(delta) || delta < -1000000 || delta > 1000000) return { error: "Invalid delta amount" };
     const adminClient = createAdminClient();
 
     // Fetch current stock first
@@ -75,6 +81,7 @@ export async function adjustPesticideStock(id: string, delta: number) {
 export async function deletePesticide(id: string) {
   try {
     await requireAdmin();
+    if (!/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(id)) return { error: "Invalid pesticide ID" };
     const adminClient = createAdminClient();
     const { error } = await adminClient
       .from("pesticide_inventory")
@@ -91,8 +98,9 @@ export async function deletePesticide(id: string) {
 export async function updateItemRate(id: string, data: FormData) {
   try {
     await requireAdmin();
+    if (!/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(id)) return { error: "Invalid item ID" };
     const newRate = parseFloat((data.get("newRate") as string) ?? "0");
-    if (isNaN(newRate) || newRate <= 0) return { error: "Invalid rate." };
+    if (isNaN(newRate) || newRate <= 0 || newRate > 1000000) return { error: "Invalid rate." };
     const adminClient = createAdminClient();
     const { error } = await adminClient
       .from("items")
@@ -110,8 +118,9 @@ export async function updateItemRate(id: string, data: FormData) {
 export async function updatePesticideRate(id: string, data: FormData) {
   try {
     await requireAdmin();
+    if (!/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(id)) return { error: "Invalid pesticide ID" };
     const newRate = parseFloat((data.get("newRate") as string) ?? "0");
-    if (isNaN(newRate) || newRate < 0) return { error: "Invalid rate." };
+    if (isNaN(newRate) || newRate < 0 || newRate > 1000000) return { error: "Invalid rate." };
     const adminClient = createAdminClient();
     const { error } = await adminClient
       .from("pesticide_inventory")

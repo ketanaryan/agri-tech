@@ -56,6 +56,12 @@ export async function POST(req: NextRequest) {
   const arrayBuffer = await file.arrayBuffer();
   const buffer = Buffer.from(arrayBuffer);
 
+  const bytes = new Uint8Array(buffer.slice(0, 4));
+  const pdfSignature = [0x25, 0x50, 0x44, 0x46]; // %PDF
+  if (!pdfSignature.every((b, i) => bytes[i] === b)) {
+    return NextResponse.json({ error: "File content doesn't match declared type (PDF expected)" }, { status: 400 });
+  }
+
   // Generate a unique filename under the receipts folder
   const fileName = `receipt_${Date.now()}_${Math.random().toString(36).slice(2)}.pdf`;
   const filePath = `receipts/${fileName}`;

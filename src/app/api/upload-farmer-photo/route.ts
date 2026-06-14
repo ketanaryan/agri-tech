@@ -56,6 +56,18 @@ export async function POST(req: NextRequest) {
   const arrayBuffer = await file.arrayBuffer();
   const buffer = Buffer.from(arrayBuffer);
 
+  const signatures: Record<string, number[]> = {
+    'image/jpeg': [0xFF, 0xD8, 0xFF],
+    'image/jpg': [0xFF, 0xD8, 0xFF],
+    'image/png': [0x89, 0x50, 0x4E, 0x47],
+    'image/webp': [0x52, 0x49, 0x46, 0x46],
+  };
+  const bytes = new Uint8Array(buffer.slice(0, 4));
+  const expected = signatures[file.type];
+  if (!expected || !expected.every((b, i) => bytes[i] === b)) {
+    return NextResponse.json({ error: "File content doesn't match declared type" }, { status: 400 });
+  }
+
   // Derive extension from validated content-type (not user filename — prevents spoofing)
   const extMap: Record<string, string> = { "image/jpeg": "jpg", "image/jpg": "jpg", "image/png": "png", "image/webp": "webp" };
   const ext = extMap[file.type] || "jpg";

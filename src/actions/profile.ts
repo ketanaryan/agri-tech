@@ -11,6 +11,10 @@ export async function updateProfileQrCode(qrUrl: string) {
     return { error: "Unauthorized" };
   }
 
+  if (qrUrl.length > 1000 || (!qrUrl.startsWith("http://") && !qrUrl.startsWith("https://"))) {
+    return { error: "Invalid QR code URL" };
+  }
+
   const { error } = await supabase
     .from("profiles")
     .update({ qr_code_url: qrUrl })
