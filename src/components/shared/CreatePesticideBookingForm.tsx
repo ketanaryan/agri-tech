@@ -65,8 +65,6 @@ export function CreatePesticideBookingForm({ farmers, pesticides, dealerQrCodeUr
   const replacementQty = 0;
   const totalDelivered = qty;
 
-  const totalDelivered = qty;
-
   const handleReceiptChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (!file) return;
@@ -225,7 +223,6 @@ export function CreatePesticideBookingForm({ farmers, pesticides, dealerQrCodeUr
     setPaying(true);
     setMsg(null);
 
-    try {
     try {
       // If payment is ₹0.00 (because rate is 0), skip payment gateway
       if (checkoutAmount <= 0) {
