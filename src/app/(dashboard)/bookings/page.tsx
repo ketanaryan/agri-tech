@@ -17,7 +17,7 @@ export default async function BookingsPage() {
 
   const { data: profile } = await supabase
     .from("profiles")
-    .select("role, district")
+    .select("role, district, qr_code_url")
     .eq("id", user.id)
     .single();
 
