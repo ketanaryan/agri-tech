@@ -13,7 +13,7 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   }
 
-  // Allow Admin, FieldOfficer, Leader, Counselor to upload receipts
+  // Allow Admin, FieldOfficer, Dealer, Counselor to upload receipts
   const { data: profile } = await supabase
     .from("profiles")
     .select("role")
@@ -23,7 +23,7 @@ export async function POST(req: NextRequest) {
   if (
     profile?.role !== "Admin" && 
     profile?.role !== "FieldOfficer" && 
-    profile?.role !== "Leader" &&
+    profile?.role !== "Dealer" &&
     profile?.role !== "Counselor"
   ) {
     return NextResponse.json({ error: "Forbidden" }, { status: 403 });

@@ -30,13 +30,13 @@ export default async function ReportsPage() {
   const role = profile?.role;
   const district = profile?.district;
 
-  const allowedRoles = ["Admin", "FieldOfficer", "Leader"];
+  const allowedRoles = ["Admin", "FieldOfficer", "Dealer"];
   if (!role || !allowedRoles.includes(role)) redirect("/");
 
   const isOfficer = role === "FieldOfficer";
-  const isLeader = role === "Leader";
-  // Only Admin and Leader see revenue (Counselor and FieldOfficer do NOT)
-  const showRevenue = role === "Admin" || role === "Leader";
+  const isDealer = role === "Dealer";
+  // Only Admin and Dealer see revenue (Counselor and FieldOfficer do NOT)
+  const showRevenue = role === "Admin" || role === "Dealer";
 
   // Build base query
   let query = supabase
@@ -53,11 +53,11 @@ export default async function ReportsPage() {
 
   if (isOfficer) {
     query = query.eq("created_by", user.id);
-  } else if (isLeader) {
+  } else if (isDealer) {
     if (!district) {
       skipQuery = true;
     } else {
-      // Scope to farmers in this leader's district
+      // Scope to farmers in this dealer's district
       const { data: districtFarmers } = await supabase
         .from("farmers")
         .select("id")
@@ -118,7 +118,7 @@ export default async function ReportsPage() {
   const pageTitle =
     isOfficer
       ? "My Performance Report"
-      : isLeader
+      : isDealer
       ? `${district || "District"} Reports`
       : "System Reports";
 
@@ -169,7 +169,7 @@ export default async function ReportsPage() {
 
       </div>
 
-      {/* Financial Overview (Admin and Leader ONLY) */}
+      {/* Financial Overview (Admin and Dealer ONLY) */}
       {showRevenue && (
         <div className="space-y-4">
           <h2 className="text-xl font-bold text-gray-800">Financial Overview</h2>
@@ -241,8 +241,8 @@ export default async function ReportsPage() {
         </div>
       )}
 
-      {/* District notice for Leader with no district */}
-      {isLeader && !district && (
+      {/* District notice for Dealer with no district */}
+      {isDealer && !district && (
         <div className="p-4 bg-orange-50 border border-orange-200 rounded-lg text-sm text-orange-800">
           No district assigned to your profile. Contact Admin to set your district so reports are scoped correctly.
         </div>

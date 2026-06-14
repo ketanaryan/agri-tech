@@ -38,6 +38,7 @@ export async function createUserAction(
   const taluka = (data.get("taluka") as string) || null;
   const villages_covered = parseInt(data.get("villages_covered") as string) || 0;
   const village_names = (data.get("village_names") as string) || null;
+  const qr_code_url = (data.get("qr_code_url") as string) || null;
 
   if (!email || !password || !name || !role || !aadhar_card || !pan_card) {
     return { error: "All fields are required, including Aadhar and PAN card." };
@@ -71,9 +72,9 @@ export async function createUserAction(
   if (!invokerRole) return { error: "Unauthorized: Missing role" };
 
   // Hierarchy enforcement
-  if (invokerRole === "Leader") {
+  if (invokerRole === "Dealer") {
     if (role !== "FieldOfficer")
-      return { error: "Leaders can only create Field Officers." };
+      return { error: "Dealers can only create Field Officers." };
   } else if (invokerRole === "Counselor") {
     if (["Admin", "Telecaller", "Counselor"].includes(role))
       return { error: "Counselors cannot create Admins, Telecallers, or Counselors." };
@@ -84,7 +85,7 @@ export async function createUserAction(
   // Generate unique_id
   const prefixMap: Record<string, string> = {
     FieldOfficer: "BPFO",
-    Leader: "BPLD",
+    Dealer: "BPDL",
     Telecaller: "BPTL",
     Counselor: "BPCS",
   };
@@ -112,6 +113,7 @@ export async function createUserAction(
     unique_id,
     aadhar_card,
     pan_card: pan_card.toUpperCase(),
+    qr_code_url,
   };
 
   // Add village coverage for Field Officers
@@ -131,7 +133,7 @@ export async function createUserAction(
 
   revalidatePath("/admin");
   revalidatePath("/counselor");
-  revalidatePath("/leader");
+  revalidatePath("/dealer");
   return { success: true };
 }
 

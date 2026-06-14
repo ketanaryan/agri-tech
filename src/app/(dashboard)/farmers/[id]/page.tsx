@@ -48,7 +48,7 @@ export default async function FarmerProfilePage({
   if (
     role !== "Admin" &&
     role !== "FieldOfficer" &&
-    role !== "Leader" &&
+    role !== "Dealer" &&
     role !== "Counselor" &&
     role !== "Telecaller"
   ) {

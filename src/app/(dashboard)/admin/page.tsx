@@ -16,6 +16,7 @@ import {
 import { redirect } from "next/navigation";
 import { Users, AlertCircle, IndianRupee, Tractor, FlaskConical, AlertTriangle, MapPin, Receipt } from "lucide-react";
 import { CreateUserForm } from "@/components/shared/CreateUserForm";
+import { UploadQRCard } from "@/components/shared/UploadQRCard";
 
 export default async function AdminPage() {
   const supabase = await createClient();
@@ -25,7 +26,7 @@ export default async function AdminPage() {
 
   const { data: profile } = await supabase
     .from("profiles")
-    .select("role")
+    .select("role, qr_code_url")
     .eq("id", user.id)
     .single();
 
@@ -127,6 +128,11 @@ export default async function AdminPage() {
       </div>
 
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+        {/* Central Admin Payment QR Code */}
+        <div className="col-span-1 lg:col-span-2">
+          <UploadQRCard initialQrUrl={profile?.qr_code_url || null} />
+        </div>
+
         {/* User Management */}
         <Card>
           <CardHeader>
@@ -137,7 +143,7 @@ export default async function AdminPage() {
               allowedRoles={[
                 { value: "Admin", label: "Admin" },
                 { value: "FieldOfficer", label: "Field Officer" },
-                { value: "Leader", label: "Leader" },
+                { value: "Dealer", label: "Dealer" },
                 { value: "Telecaller", label: "Telecaller" },
                 { value: "Counselor", label: "Counselor" },
               ]}

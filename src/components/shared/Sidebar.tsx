@@ -18,7 +18,7 @@ import {
   UserPlus,
 } from "lucide-react";
 
-type UserRole = "Admin" | "FieldOfficer" | "Leader" | "Telecaller" | string;
+type UserRole = "Admin" | "FieldOfficer" | "Dealer" | "Telecaller" | string;
 
 interface SidebarProps {
   role: UserRole;
@@ -46,9 +46,9 @@ export function Sidebar({ role }: SidebarProps) {
           { href: "/plant-report", label: "Plant Report", icon: Package },
           { href: "/reports", label: "Reports", icon: BarChart3 },
         ];
-      case "Leader":
+      case "Dealer":
         return [
-          { href: "/leader", label: "Manage Team", icon: UserPlus },
+          { href: "/dealer", label: "Manage Team", icon: UserPlus },
           { href: "/bookings", label: "New Booking", icon: FileText },
           { href: "/bookings/pesticide", label: "Pesticide Booking", icon: Leaf },
           { href: "/purchasing", label: "Purchasing", icon: Search },

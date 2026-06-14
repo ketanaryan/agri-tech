@@ -15,7 +15,7 @@ export default async function PesticideBookingsPage() {
 
   const { data: profile } = await supabase
     .from("profiles")
-    .select("role")
+    .select("role, district, qr_code_url")
     .eq("id", user.id)
     .single();
 
@@ -23,7 +23,7 @@ export default async function PesticideBookingsPage() {
     profile?.role !== "Admin" && 
     profile?.role !== "FieldOfficer" && 
     profile?.role !== "Counselor" && 
-    profile?.role !== "Leader"
+    profile?.role !== "Dealer"
   ) {
     redirect("/"); // redirect unauthorized users
   }
@@ -39,6 +39,32 @@ export default async function PesticideBookingsPage() {
     .from("pesticide_inventory")
     .select("id, name, rate_per_unit, unit")
     .order("name");
+
+  // Determine QR Code URL for payments
+  let dealerQrCodeUrl = profile?.qr_code_url || null;
+
+  if (profile?.role === "FieldOfficer" && profile?.district) {
+    const { data: dealer } = await supabase
+      .from("profiles")
+      .select("qr_code_url")
+      .eq("role", "Dealer")
+      .eq("district", profile.district)
+      .limit(1)
+      .single();
+    if (dealer?.qr_code_url) dealerQrCodeUrl = dealer.qr_code_url;
+  }
+
+  // Fallback to Admin QR Code
+  if (!dealerQrCodeUrl) {
+    const { data: admin } = await supabase
+      .from("profiles")
+      .select("qr_code_url")
+      .eq("role", "Admin")
+      .not("qr_code_url", "is", null)
+      .limit(1)
+      .single();
+    dealerQrCodeUrl = admin?.qr_code_url || null;
+  }
 
   return (
     <div className="space-y-6">
@@ -56,6 +82,7 @@ export default async function PesticideBookingsPage() {
             <CreatePesticideBookingForm
               farmers={farmers ?? []}
               pesticides={pesticides ?? []}
+              dealerQrCodeUrl={dealerQrCodeUrl}
             />
           </CardContent>
         </Card>

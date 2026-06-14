@@ -12,7 +12,6 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import Image from "next/image";
-import { load } from '@cashfreepayments/cashfree-js';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter, DialogDescription } from "@/components/ui/dialog";
 
 interface Farmer {
@@ -33,10 +32,10 @@ interface CreateBookingFormProps {
   farmers: Farmer[];
   items: Item[];
   mode?: "new" | "existing" | "both";
+  dealerQrCodeUrl?: string | null;
 }
 
-
-export function CreateBookingForm({ farmers, items, mode = "both" }: CreateBookingFormProps) {
+export function CreateBookingForm({ farmers, items, mode = "both", dealerQrCodeUrl }: CreateBookingFormProps) {
   const [farmerMode, setFarmerMode] = useState<"existing" | "new">(mode === "new" ? "new" : "existing");
   const [farmerId, setFarmerId] = useState("");
 
@@ -65,6 +64,14 @@ export function CreateBookingForm({ farmers, items, mode = "both" }: CreateBooki
   const [paying, setPaying] = useState(false);
   const [isPending, startTransition] = useTransition();
   const [showQrModal, setShowQrModal] = useState(false);
+
+  // Receipt Upload State for QR Modal
+  const [receiptPreview, setReceiptPreview] = useState<string | null>(null);
+  const [receiptUrl, setReceiptUrl] = useState<string>("");
+  const [uploadingReceipt, setUploadingReceipt] = useState(false);
+  const [receiptError, setReceiptError] = useState<string | null>(null);
+  const [utrNumber, setUtrNumber] = useState("");
+  const receiptFileInputRef = useRef<HTMLInputElement>(null);
 
   const qty = parseInt(qtyStr, 10) || 0;
   const selectedItem = items.find((i) => i.id === itemId);
@@ -119,9 +126,42 @@ export function CreateBookingForm({ farmers, items, mode = "both" }: CreateBooki
     }
   };
 
+  const handleReceiptChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+
+    const reader = new FileReader();
+    reader.onload = (ev) => setReceiptPreview(ev.target?.result as string);
+    reader.readAsDataURL(file);
+
+    setUploadingReceipt(true);
+    setReceiptError(null);
+    setReceiptUrl("");
+
+    try {
+      const fd = new FormData();
+      fd.append("photo", file);
+      const res = await fetch("/api/upload-farmer-photo", { method: "POST", body: fd });
+      const json = await res.json();
+      if (!res.ok) {
+        setReceiptError(json.error || "Upload failed");
+        setReceiptPreview(null);
+      } else {
+        setReceiptUrl(json.url);
+      }
+    } catch {
+      setReceiptError("Network error during upload");
+      setReceiptPreview(null);
+    } finally {
+      setUploadingReceipt(false);
+    }
+  };
+
   const createBookingInDB = async (paymentData?: {
     gateway_order_id?: string;
     method?: string;
+    payment_receipt_url?: string;
+    utr_number?: string;
   }) => {
     const methodToUse = paymentData?.method || payMethod;
     const bookRes = await fetch("/api/bookings/create", {
@@ -279,72 +319,9 @@ export function CreateBookingForm({ farmers, items, mode = "both" }: CreateBooki
     setMsg(null);
 
     try {
-      if (payType === "full") {
-        // Use Manual QR Code Trick for full payment
-        setShowQrModal(true);
-        return;
-      }
-
-      // Online: Cashfree flow for advance payment
-      const receiptId = farmerMode === "existing" 
-        ? `${payType}_${farmerId.slice(0, 8)}_${Date.now()}` 
-        : `${payType}_new_${Date.now()}`;
-
-      const notes = {
-        item_id: itemId,
-        qty: qty.toString(),
-        type: payType,
-        ...(farmerMode === "existing" ? { farmer_id: farmerId } : { new_farmer: "true" })
-      };
-
-      const prefillName = farmerMode === "existing" ? (selectedFarmer?.name ?? "") : newFarmerName;
-      const prefillContact = farmerMode === "existing" ? (selectedFarmer?.phone ?? "") : newFarmerPhone;
-
-      const orderRes = await fetch("/api/cashfree/create-order", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          amount: checkoutAmount,
-          receipt: receiptId,
-          notes,
-          customer_name: prefillName || "Guest",
-          customer_phone: prefillContact || "9999999999",
-        }),
-      });
-
-      const orderData = await orderRes.json();
-      if (!orderRes.ok || orderData.error) {
-        setMsg({ text: orderData.error ?? "Could not create payment order.", type: "error" });
-        setPaying(false);
-        return;
-      }
-
-      const cashfree = await load({
-        mode: "sandbox", 
-      });
-
-      const checkoutOptions = {
-        paymentSessionId: orderData.paymentSessionId,
-        redirectTarget: "_modal",
-      };
-
-      cashfree.checkout(checkoutOptions).then((result: any) => {
-        if (result.error) {
-          setMsg({ text: `Payment failed: ${result.error.message}`, type: "error" });
-          setPaying(false);
-        }
-        if (result.redirect) {
-           console.log("Redirection");
-        }
-        if (result.paymentDetails) {
-          // Payment successful in modal
-          startTransition(async () => {
-            await createBookingInDB({
-              gateway_order_id: orderData.orderId,
-            });
-          });
-        }
-      });
+      // Show QR Modal for all online payments
+      setShowQrModal(true);
+      return;
     } catch (err: any) {
       setMsg({ text: err?.message ?? "An unexpected error occurred.", type: "error" });
       setPaying(false);
@@ -352,11 +329,17 @@ export function CreateBookingForm({ farmers, items, mode = "both" }: CreateBooki
   };
 
   const handleManualQrPaid = () => {
+    if (!receiptUrl || !utrNumber) {
+       setReceiptError("Receipt screenshot and UTR number are required.");
+       return;
+    }
     setShowQrModal(false);
     startTransition(async () => {
       await createBookingInDB({
         gateway_order_id: "qr_payment",
         method: "qr",
+        payment_receipt_url: receiptUrl,
+        utr_number: utrNumber,
       });
     });
   };
@@ -605,7 +588,7 @@ export function CreateBookingForm({ farmers, items, mode = "both" }: CreateBooki
       <div className="space-y-2">
         <Label>Payment Method</Label>
         <div className="p-3 bg-gray-50 border border-gray-200 rounded-lg text-sm text-gray-700 flex items-center">
-          💳 Online Payment Only (via Cashfree)
+          💳 Pay via Dealer QR Code
         </div>
       </div>
 
@@ -647,7 +630,7 @@ export function CreateBookingForm({ farmers, items, mode = "both" }: CreateBooki
             <span>₹{balanceAmount.toLocaleString("en-IN", { minimumFractionDigits: 2 })}</span>
           </div>
           <p className="text-xs text-gray-400">
-            {payType === "full" ? "📷 A QR code will be displayed for manual payment verification." : `💳 Cashfree will open for ₹${checkoutAmount.toFixed(2)}.`}
+            📷 A QR code will be displayed for manual payment verification.
           </p>
         </div>
       )}
@@ -714,25 +697,56 @@ export function CreateBookingForm({ farmers, items, mode = "both" }: CreateBooki
       </Button>
 
       <Dialog open={showQrModal} onOpenChange={setShowQrModal}>
-        <DialogContent className="sm:max-w-md">
+        <DialogContent className="sm:max-w-md max-h-[90vh] overflow-y-auto">
           <DialogHeader>
             <DialogTitle>Complete Payment via QR</DialogTitle>
             <DialogDescription>
-              Please scan the QR code below to pay the full amount of ₹{checkoutAmount.toFixed(2)}. Once you have paid, click "OK, I have Paid".
+              Please scan the QR code below to pay ₹{checkoutAmount.toFixed(2)}. Once paid, upload the receipt screenshot and enter the UTR number.
             </DialogDescription>
           </DialogHeader>
-          <div className="flex justify-center p-4">
-            {/* Placeholder QR Code. Client can replace with actual QR image */}
-            <div className="w-64 h-64 border-4 border-green-500 rounded-xl bg-gray-50 flex items-center justify-center p-2 relative overflow-hidden">
-               <Image src={`https://api.qrserver.com/v1/create-qr-code/?size=250x250&data=upi://pay?pa=agritecherp@upi&pn=AgriTechERP&am=${checkoutAmount.toFixed(2)}`} fill alt="QR Code" className="object-contain" />
+          <div className="flex flex-col items-center p-2 space-y-4">
+            {dealerQrCodeUrl ? (
+              <div className="w-64 h-64 border-4 border-green-500 rounded-xl bg-gray-50 flex items-center justify-center p-2 relative overflow-hidden">
+                <Image src={dealerQrCodeUrl} fill alt="Dealer QR Code" className="object-contain" />
+              </div>
+            ) : (
+              <div className="w-64 h-64 border-4 border-dashed border-gray-300 rounded-xl bg-gray-50 flex flex-col items-center justify-center p-4 text-center text-gray-500">
+                 No QR Code found for this Dealer. Please pay directly and attach receipt.
+              </div>
+            )}
+            
+            <div className="w-full space-y-3 mt-4">
+               <div className="space-y-1">
+                 <Label>Upload Payment Screenshot</Label>
+                 <div className="flex items-center gap-3">
+                   {receiptPreview ? (
+                      <div className="w-12 h-12 relative rounded border border-gray-200">
+                        <Image src={receiptPreview} fill alt="Receipt" className="object-cover rounded" />
+                      </div>
+                   ) : null}
+                   <div className="flex-1">
+                     <Button type="button" variant="outline" className="w-full" onClick={() => receiptFileInputRef.current?.click()} disabled={uploadingReceipt}>
+                       {uploadingReceipt ? "Uploading..." : receiptUrl ? "Change Screenshot" : "Upload Screenshot"}
+                     </Button>
+                     <input ref={receiptFileInputRef} type="file" accept="image/*" className="hidden" onChange={handleReceiptChange} />
+                   </div>
+                 </div>
+               </div>
+               
+               <div className="space-y-1">
+                 <Label>Transaction UTR Number</Label>
+                 <Input value={utrNumber} onChange={(e) => setUtrNumber(e.target.value)} placeholder="Enter 12-digit UTR number" />
+               </div>
+
+               {receiptError && <p className="text-sm text-red-600">{receiptError}</p>}
             </div>
           </div>
-          <DialogFooter className="flex gap-2 justify-end sm:justify-end">
-            <Button variant="outline" onClick={() => setShowQrModal(false)} disabled={isPending}>
+          <DialogFooter className="flex gap-2 justify-end">
+            <Button variant="outline" onClick={() => setShowQrModal(false)} disabled={isPending || uploadingReceipt}>
               Cancel
             </Button>
-            <Button className="bg-green-600 hover:bg-green-700" onClick={handleManualQrPaid} disabled={isPending}>
-              {isPending ? "Processing..." : "OK, I have Paid"}
+            <Button className="bg-green-600 hover:bg-green-700" onClick={handleManualQrPaid} disabled={isPending || uploadingReceipt || !receiptUrl || !utrNumber}>
+              {isPending ? "Processing..." : "Submit Payment"}
             </Button>
           </DialogFooter>
         </DialogContent>

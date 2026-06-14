@@ -1,0 +1,26 @@
+"use server";
+
+import { createClient } from "@/lib/supabase/server";
+import { revalidatePath } from "next/cache";
+
+export async function updateProfileQrCode(qrUrl: string) {
+  const supabase = await createClient();
+  const { data: { user }, error: authError } = await supabase.auth.getUser();
+  
+  if (authError || !user) {
+    return { error: "Unauthorized" };
+  }
+
+  const { error } = await supabase
+    .from("profiles")
+    .update({ qr_code_url: qrUrl })
+    .eq("id", user.id);
+
+  if (error) {
+    return { error: "Failed to update QR code" };
+  }
+
+  revalidatePath("/admin");
+  revalidatePath("/dealer");
+  return { success: true };
+}

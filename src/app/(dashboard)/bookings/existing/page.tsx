@@ -23,7 +23,7 @@ export default async function ExistingBookingsPage() {
     profile?.role !== "Admin" && 
     profile?.role !== "FieldOfficer" && 
     profile?.role !== "Counselor" && 
-    profile?.role !== "Leader"
+    profile?.role !== "Dealer"
   ) {
     redirect("/"); // redirect unauthorized users
   }

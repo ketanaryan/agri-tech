@@ -1,7 +1,8 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useRef } from "react";
 import { useActionState } from "react";
+import Image from "next/image";
 import { createUserAction } from "@/actions/admin";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -25,7 +26,7 @@ interface CreateUserFormProps {
   /** Roles visible in the dropdown. Pass 1 item to hide dropdown (uses hidden input). */
   allowedRoles: RoleOption[];
   defaultRole?: string;
-  /** Pre-fills district as a hidden field (used by Leader) */
+  /** Pre-fills district as a hidden field (used by Dealer) */
   fixedDistrict?: string;
   /** Show district text field? True by default. Set false when fixedDistrict is used. */
   showDistrictField?: boolean;
@@ -40,6 +41,44 @@ export function CreateUserForm({
   const [state, formAction, isPending] = useActionState(createUserAction, null);
   const [selectedRole, setSelectedRole] = useState(defaultRole || allowedRoles[0]?.value || "");
 
+  // QR Upload State
+  const [qrPreview, setQrPreview] = useState<string | null>(null);
+  const [qrUrl, setQrUrl] = useState<string>("");
+  const [uploadingQr, setUploadingQr] = useState(false);
+  const [uploadErrorQr, setUploadErrorQr] = useState<string | null>(null);
+  const qrFileInputRef = useRef<HTMLInputElement>(null);
+
+  const handleQrChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+
+    const reader = new FileReader();
+    reader.onload = (ev) => setQrPreview(ev.target?.result as string);
+    reader.readAsDataURL(file);
+
+    setUploadingQr(true);
+    setUploadErrorQr(null);
+    setQrUrl("");
+
+    try {
+      const fd = new FormData();
+      fd.append("photo", file); // using existing photo upload endpoint
+      const res = await fetch("/api/upload-farmer-photo", { method: "POST", body: fd });
+      const json = await res.json();
+      if (!res.ok) {
+        setUploadErrorQr(json.error || "Upload failed");
+        setQrPreview(null);
+      } else {
+        setQrUrl(json.url);
+      }
+    } catch {
+      setUploadErrorQr("Network error during upload");
+      setQrPreview(null);
+    } finally {
+      setUploadingQr(false);
+    }
+  };
+
   return (
     <form action={formAction} className="space-y-4">
       {/* Hidden fields */}
@@ -49,6 +88,8 @@ export function CreateUserForm({
       {allowedRoles.length === 1 && (
         <input type="hidden" name="role" value={allowedRoles[0].value} />
       )}
+      {/* Hidden QR Code URL */}
+      <input type="hidden" name="qr_code_url" value={qrUrl} />
 
       {/* Name + Phone */}
       <div className="grid grid-cols-2 gap-4">
@@ -205,6 +246,41 @@ export function CreateUserForm({
         </div>
       )}
 
+      {/* QR Code Upload — shown for Dealer and Admin */}
+      {(selectedRole === "Dealer" || selectedRole === "Admin" || (allowedRoles.length === 1 && (allowedRoles[0].value === "Dealer" || allowedRoles[0].value === "Admin"))) && (
+        <div className="border border-blue-200 bg-blue-50/50 rounded-xl p-4 space-y-4">
+          <div className="flex items-center gap-2 text-blue-700 font-semibold text-sm">
+            <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v1m6 11h2m-6 0h-2v4m0-11v3m0 0h.01M12 12h4.01M16 20h4M4 12h4m12 0h.01M5 8h2a1 1 0 001-1V5a1 1 0 00-1-1H5a1 1 0 00-1 1v2a1 1 0 001 1zm14 0h2a1 1 0 001-1V5a1 1 0 00-1-1h-2a1 1 0 00-1 1v2a1 1 0 001 1zM5 20h2a1 1 0 001-1v-2a1 1 0 00-1-1H5a1 1 0 00-1 1v2a1 1 0 001 1z"/></svg>
+            Payment QR Code (Optional)
+          </div>
+          <p className="text-xs text-blue-600">Upload personal QR code for collecting payments.</p>
+          <div className="flex items-center gap-4">
+            {qrPreview ? (
+              <div className="relative w-16 h-16 rounded-md overflow-hidden border border-blue-600 shadow-sm flex-shrink-0">
+                <Image src={qrPreview} alt="Preview" fill className="object-cover" />
+              </div>
+            ) : (
+              <div className="w-16 h-16 rounded-md bg-white border border-dashed border-blue-300 flex-shrink-0 flex items-center justify-center">
+                <svg className="w-6 h-6 text-blue-300" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z"/></svg>
+              </div>
+            )}
+            <div className="flex-1">
+              <Button
+                type="button"
+                variant="outline"
+                className="w-full justify-start text-blue-700 border-blue-300 hover:bg-blue-100"
+                onClick={() => qrFileInputRef.current?.click()}
+                disabled={uploadingQr}
+              >
+                {uploadingQr ? "Uploading..." : qrUrl ? "Change QR Code" : "Upload QR Code Image"}
+              </Button>
+              <input ref={qrFileInputRef} type="file" accept="image/jpeg,image/jpg,image/png,image/webp" className="hidden" onChange={handleQrChange} />
+              {uploadErrorQr && <p className="text-xs text-red-600 mt-1">{uploadErrorQr}</p>}
+            </div>
+          </div>
+        </div>
+      )}
+
       {/* Feedback */}
       {state?.error && (
         <div className="flex items-start gap-2 p-3 text-sm text-red-700 bg-red-50 border border-red-200 rounded-lg">
@@ -222,7 +298,7 @@ export function CreateUserForm({
       <Button
         type="submit"
         className="w-full bg-green-700 hover:bg-green-800"
-        disabled={isPending}
+        disabled={isPending || uploadingQr}
       >
         {isPending ? (
           <>

@@ -25,7 +25,7 @@ export default async function BookingsPage() {
     profile?.role !== "Admin" && 
     profile?.role !== "FieldOfficer" && 
     profile?.role !== "Counselor" && 
-    profile?.role !== "Leader"
+    profile?.role !== "Dealer"
   ) {
     redirect("/"); // redirect unauthorized users
   }
@@ -77,6 +77,32 @@ export default async function BookingsPage() {
     .from("bookings")
     .select("*", { count: "exact", head: true });
 
+  // Determine QR Code URL for payments
+  let dealerQrCodeUrl = profile?.qr_code_url || null;
+
+  if (profile?.role === "FieldOfficer" && profile?.district) {
+    const { data: dealer } = await supabase
+      .from("profiles")
+      .select("qr_code_url")
+      .eq("role", "Dealer")
+      .eq("district", profile.district)
+      .limit(1)
+      .single();
+    if (dealer?.qr_code_url) dealerQrCodeUrl = dealer.qr_code_url;
+  }
+
+  // Fallback to Admin QR Code
+  if (!dealerQrCodeUrl) {
+    const { data: admin } = await supabase
+      .from("profiles")
+      .select("qr_code_url")
+      .eq("role", "Admin")
+      .not("qr_code_url", "is", null)
+      .limit(1)
+      .single();
+    dealerQrCodeUrl = admin?.qr_code_url || null;
+  }
+
   return (
     <div className="space-y-6">
       <h1 className="text-2xl font-bold">Bookings &amp; Farmers</h1>
@@ -119,7 +145,7 @@ export default async function BookingsPage() {
       </div>
 
       <div className="max-w-xl">
-        {/* Create Booking & Farmer Form — Cashfree-integrated client component */}
+        {/* Create Booking & Farmer Form */}
         <Card>
           <CardHeader>
             <CardTitle>Create Booking</CardTitle>
@@ -129,6 +155,7 @@ export default async function BookingsPage() {
               farmers={farmers ?? []}
               items={items ?? []}
               mode="new"
+              dealerQrCodeUrl={dealerQrCodeUrl}
             />
           </CardContent>
         </Card>

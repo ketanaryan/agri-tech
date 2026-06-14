@@ -25,7 +25,7 @@ export async function POST(req: NextRequest) {
       profile?.role !== "Admin" &&
       profile?.role !== "FieldOfficer" &&
       profile?.role !== "Counselor" &&
-      profile?.role !== "Leader"
+      profile?.role !== "Dealer"
     ) {
       return NextResponse.json({ error: "Forbidden" }, { status: 403 });
     }
@@ -37,7 +37,8 @@ export async function POST(req: NextRequest) {
       qty,
       paymentMethod = "online",
       paymentType = "advance",
-      gateway_order_id,
+      payment_receipt_url,
+      utr_number,
     } = body;
 
     if (!farmerId) {
@@ -67,49 +68,6 @@ export async function POST(req: NextRequest) {
       ? total_amount 
       : Math.round(total_amount * 0.1 * 100) / 100;
     const balance_amount = Math.round((total_amount - booking_amount) * 100) / 100;
-    if (paymentMethod === "online" && booking_amount > 0) {
-      if (!gateway_order_id) {
-        return NextResponse.json({ error: "Missing Payment details" }, { status: 400 });
-      }
-
-      const appId = process.env.CASHFREE_APP_ID;
-      const secretKey = process.env.CASHFREE_SECRET_KEY;
-      const environment = process.env.CASHFREE_ENVIRONMENT || "SANDBOX";
-      const baseUrl = environment === "PRODUCTION" ? "https://api.cashfree.com/pg/orders" : "https://sandbox.cashfree.com/pg/orders";
-
-      try {
-        const response = await fetch(`${baseUrl}/${gateway_order_id}`, {
-          method: "GET",
-          headers: {
-            "x-api-version": "2023-08-01",
-            "x-client-id": appId!,
-            "x-client-secret": secretKey!,
-            "Content-Type": "application/json",
-            "Accept": "application/json",
-          },
-        });
-        const orderData = await response.json();
-        
-        if (!response.ok || orderData.order_status !== "PAID") {
-          return NextResponse.json(
-            { error: "Payment verification failed or payment not completed." },
-            { status: 400 }
-          );
-        }
-
-        if (Math.abs(orderData.order_amount - booking_amount) > 1) { // Allowing 1 INR difference max due to rounding
-           return NextResponse.json(
-             { error: "Payment amount mismatch detected. Verification failed." },
-             { status: 400 }
-           );
-        }
-      } catch (e) {
-        return NextResponse.json(
-          { error: "Error verifying payment with payment gateway." },
-          { status: 500 }
-        );
-      }
-    }
 
     // Pesticides don't get free replacements like plants (unless specified)
     const replacement_qty = 0;
@@ -127,11 +85,9 @@ export async function POST(req: NextRequest) {
       status: "Pending",
       created_by: user.id,
       advance_payment_method: paymentMethod,
+      payment_receipt_url: payment_receipt_url || null,
+      utr_number: utr_number || null,
     };
-
-    if (paymentMethod === "online" && booking_amount > 0) {
-      insertData.razorpay_order_id = gateway_order_id ?? null;
-    }
 
     const adminClient = createAdminClient();
     const { data: newBooking, error: insertError } = await adminClient
@@ -162,8 +118,8 @@ export async function POST(req: NextRequest) {
         farmer_unique_id: fInfo?.unique_id || "",
         booking_type: "pesticide",
         payment_type: paymentType,
-        gateway_order_id: gateway_order_id || null,
         qty,
+        utr_number: utr_number || null,
       };
 
       await logTransaction({

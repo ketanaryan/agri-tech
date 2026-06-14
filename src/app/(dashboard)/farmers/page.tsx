@@ -44,7 +44,7 @@ export default async function FarmersDirectoryPage({
     role !== "FieldOfficer" &&
     role !== "Telecaller" &&
     role !== "Counselor" &&
-    role !== "Leader"
+    role !== "Dealer"
   ) {
     redirect("/");
   }
@@ -59,8 +59,8 @@ export default async function FarmersDirectoryPage({
     .is("deleted_at", null)
     .order("created_at", { ascending: false });
 
-  // Scope to district for Leader
-  if (role === "Leader" && profile?.district) {
+  // Scope to district for Dealer
+  if (role === "Dealer" && profile?.district) {
     query = query.eq("district", profile.district);
   }
 
@@ -82,7 +82,7 @@ export default async function FarmersDirectoryPage({
     .from("farmers")
     .select("*", { count: "exact", head: true })
     .is("deleted_at", null);
-  if (role === "Leader" && profile?.district) {
+  if (role === "Dealer" && profile?.district) {
     totalQuery = totalQuery.eq("district", profile.district);
   }
   const { count: totalCount } = await totalQuery;
@@ -93,7 +93,7 @@ export default async function FarmersDirectoryPage({
         <div>
           <h1 className="text-2xl font-bold">Farmer Directory</h1>
           <p className="text-gray-500 text-sm">
-            {role === "Leader" && profile?.district
+            {role === "Dealer" && profile?.district
               ? `Showing farmers in ${profile.district} district.`
               : "Master list of all registered farmers in the system."}
           </p>

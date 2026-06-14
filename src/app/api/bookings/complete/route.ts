@@ -23,7 +23,7 @@ export async function POST(req: NextRequest) {
       .eq("id", user.id)
       .single();
 
-    if (profile?.role !== "Admin" && profile?.role !== "Leader" && profile?.role !== "FieldOfficer") {
+    if (profile?.role !== "Admin" && profile?.role !== "Dealer" && profile?.role !== "FieldOfficer") {
       return NextResponse.json({ error: "Forbidden" }, { status: 403 });
     }
 
@@ -52,7 +52,7 @@ export async function POST(req: NextRequest) {
     // we only support cash or manual QR code verification as requested.
     // If online method is passed, we will treat it as a manual QR verification for now.
     
-    // For cash or qr: no signature needed — leader confirms receipt of cash or qr payment
+    // For cash or qr: no signature needed — dealer confirms receipt of cash or qr payment
 
 
     // Mark booking as Completed

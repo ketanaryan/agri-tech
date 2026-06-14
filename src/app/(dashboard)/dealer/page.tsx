@@ -18,10 +18,11 @@ import {
 import { redirect } from "next/navigation";
 import { Users, UserPlus, Tractor, FileText } from "lucide-react";
 import { CreateUserForm } from "@/components/shared/CreateUserForm";
+import { UploadQRCard } from "@/components/shared/UploadQRCard";
 
 
 
-export default async function LeaderDashboard() {
+export default async function DealerDashboard() {
   const supabase = await createClient();
 
   const {
@@ -35,11 +36,11 @@ export default async function LeaderDashboard() {
     .eq("id", user.id)
     .single();
 
-  if (profile?.role !== "Leader" && profile?.role !== "Admin") {
+  if (profile?.role !== "Dealer" && profile?.role !== "Admin") {
     redirect("/");
   }
 
-  // Fetch field officers created by this leader (or all if admin)
+  // Fetch field officers created by this dealer (or all if admin)
   // We scope by district if set
   let officersQuery = supabase
     .from("profiles")
@@ -69,7 +70,7 @@ export default async function LeaderDashboard() {
   return (
     <div className="space-y-6">
       <div>
-        <h1 className="text-2xl font-bold">Leader Dashboard</h1>
+        <h1 className="text-2xl font-bold">Dealer Dashboard</h1>
         <p className="text-gray-500 text-sm mt-1">
           Manage your Field Officers and monitor team activity.
           {profile?.district && (
@@ -149,6 +150,9 @@ export default async function LeaderDashboard() {
             />
           </CardContent>
         </Card>
+
+        {/* Upload QR Card */}
+        <UploadQRCard initialQrUrl={profile?.qr_code_url || null} />
 
         {/* My Field Officers */}
         <Card>

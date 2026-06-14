@@ -264,7 +264,7 @@ export function LogCallModal({ bookingId, farmers = [], existingLogsCount = 0 }:
                   </SelectTrigger>
                   <SelectContent>
                     <SelectItem value="None">None</SelectItem>
-                    <SelectItem value="Leader">Leader</SelectItem>
+                    <SelectItem value="Dealer">Dealer</SelectItem>
                     <SelectItem value="FieldOfficer">Field Officer</SelectItem>
                   </SelectContent>
                 </Select>
