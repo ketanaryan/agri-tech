@@ -37,7 +37,7 @@ export default async function ExistingBookingsPage() {
 
   const { data: items } = await supabase
     .from("items")
-    .select("id, name, rate_per_unit")
+    .select("id, name, rate_per_unit, advance_percentage, harvest_rate")
     .is("deleted_at", null)
     .order("name");
 
