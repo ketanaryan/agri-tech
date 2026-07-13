@@ -174,6 +174,10 @@ export default async function AdminPage() {
                 <Label htmlFor="advance_percentage">Adv. %</Label>
                 <Input id="advance_percentage" name="advance_percentage" type="number" step="0.01" defaultValue="10.00" required />
               </div>
+              <div className="space-y-2 w-28">
+                <Label htmlFor="harvest_rate">Harvest Rate (₹)</Label>
+                <Input id="harvest_rate" name="harvest_rate" type="number" step="0.01" defaultValue="0" required />
+              </div>
               <Button type="submit" className="bg-green-700 hover:bg-green-800">Add Item</Button>
             </form>
 
@@ -183,6 +187,7 @@ export default async function AdminPage() {
                   <TableRow>
                     <TableHead>Item Name</TableHead>
                     <TableHead>Current Rate</TableHead>
+                    <TableHead>Harvest Rate</TableHead>
                     <TableHead>Update Rate</TableHead>
                     <TableHead className="w-[80px]">Delete</TableHead>
                   </TableRow>
@@ -192,6 +197,7 @@ export default async function AdminPage() {
                     <TableRow key={item.id}>
                       <TableCell className="font-medium">{item.name}</TableCell>
                       <TableCell className="font-mono text-green-700 font-semibold">₹{item.rate_per_unit}</TableCell>
+                      <TableCell className="font-mono text-amber-600 font-semibold">₹{item.harvest_rate || 0}</TableCell>
                       <TableCell>
                         <form action={updateItemRate.bind(null, item.id) as (data: FormData) => void}
                           className="flex gap-2 items-center">
@@ -220,7 +226,7 @@ export default async function AdminPage() {
                   ))}
                   {items?.length === 0 && (
                     <TableRow>
-                      <TableCell colSpan={4} className="text-center text-gray-500">No items found.</TableCell>
+                      <TableCell colSpan={5} className="text-center text-gray-500">No items found.</TableCell>
                     </TableRow>
                   )}
                 </TableBody>

@@ -12,6 +12,7 @@ import {
 } from "@/components/ui/card";
 import { Search, Loader2 } from "lucide-react";
 import { PDFButton } from "./PDFButton";
+import { HarvestButton } from "./HarvestButton";
 
 interface Booking {
   id: string;
@@ -21,6 +22,8 @@ interface Booking {
   total_amount: number;
   booking_amount: number;
   balance_amount: number;
+  harvest_amount?: number;
+  status: string;
   created_at: string;
   farmer: {
     id: string;
@@ -140,13 +143,18 @@ export default function PurchasingPage() {
           {bookings.length > 0 ? (
             <div className="grid gap-6 md:grid-cols-2">
               {bookings.map((b) => (
-                <Card key={b.id} className="border-l-4 border-l-yellow-400">
+                <Card key={b.id} className={`border-l-4 ${b.status === "HarvestPending" ? "border-l-amber-500" : "border-l-yellow-400"}`}>
                   <CardHeader className="pb-3 border-b">
                     <CardTitle className="text-lg flex justify-between">
                       {b.farmer?.name}
-                      <span className="text-sm bg-gray-100 px-2 py-1 rounded text-gray-700">
+                      <span className="text-sm bg-gray-100 px-2 py-1 rounded text-gray-700 ml-2">
                         {b.farmer?.unique_id}
                       </span>
+                      {b.status === "HarvestPending" && (
+                        <span className="text-xs bg-amber-100 text-amber-800 px-2 py-1 rounded-full font-bold ml-auto uppercase tracking-wide">
+                          Harvest Pending
+                        </span>
+                      )}
                     </CardTitle>
                   </CardHeader>
                   <CardContent className="pt-4 space-y-4">
@@ -191,15 +199,19 @@ export default function PurchasingPage() {
                       </div>
 
                       <div className="text-gray-900 font-bold mt-2">
-                        Balance Due:
+                        {b.status === "HarvestPending" ? "Harvest Due:" : "Balance Due:"}
                       </div>
-                      <div className="text-right text-lg font-bold text-red-600 font-mono mt-2">
-                        &#8377;{b.balance_amount}
+                      <div className={`text-right text-lg font-bold font-mono mt-2 ${b.status === "HarvestPending" ? "text-amber-600" : "text-red-600"}`}>
+                        &#8377;{b.status === "HarvestPending" ? b.harvest_amount : b.balance_amount}
                       </div>
                     </div>
 
                     <div className="pt-4">
-                      <PDFButton booking={b} />
+                      {b.status === "HarvestPending" ? (
+                        <HarvestButton booking={b} />
+                      ) : (
+                        <PDFButton booking={b as any} />
+                      )}
                     </div>
                   </CardContent>
                 </Card>

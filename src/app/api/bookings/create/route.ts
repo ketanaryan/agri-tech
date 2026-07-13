@@ -81,7 +81,7 @@ export async function POST(req: NextRequest) {
     // Fetch item rate first to calculate expected payment amounts
     const { data: item, error: itemError } = await supabase
       .from("items")
-      .select("rate_per_unit")
+      .select("rate_per_unit, advance_percentage, harvest_rate")
       .eq("id", itemId)
       .single();
 
@@ -89,11 +89,15 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ error: "Item not found" }, { status: 404 });
     }
 
+    const advance_percentage = item.advance_percentage ?? 10;
     const total_amount = item.rate_per_unit * qty;
+    const harvest_amount = (item.harvest_rate || 0) * qty;
+    const harvest_status = harvest_amount > 0 ? "Pending" : "None";
+
     const booking_amount = paymentType === "full" 
-      ? total_amount 
-      : Math.round(total_amount * 0.1 * 100) / 100;
-    const balance_amount = Math.round((total_amount - booking_amount) * 100) / 100;
+      ? (total_amount - harvest_amount)
+      : Math.round(total_amount * (advance_percentage / 100) * 100) / 100;
+    const balance_amount = Math.round((total_amount - booking_amount - harvest_amount) * 100) / 100;
 
     // Payment verification is now done manually via Receipt/UTR
     // Proceed to create the farmer if it's a new farmer.
@@ -161,6 +165,8 @@ export async function POST(req: NextRequest) {
       total_amount,
       booking_amount,
       balance_amount,
+      harvest_amount,
+      harvest_status,
       status: "Pending",
       created_by: user.id,
       advance_payment_method: paymentMethod,
@@ -188,6 +194,8 @@ export async function POST(req: NextRequest) {
           total_amount,
           booking_amount,
           balance_amount,
+          harvest_amount,
+          harvest_status,
           status: "Pending",
           created_by: user.id,
           payment_receipt_url: payment_receipt_url || null,

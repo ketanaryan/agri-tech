@@ -42,7 +42,7 @@ export default async function ReportsPage() {
   let query = supabase
     .from("bookings")
     .select(
-      `id, qty, replacement_qty, total_amount, booking_amount, balance_amount, status, created_at, farmer_id,
+      `id, qty, replacement_qty, total_amount, booking_amount, balance_amount, harvest_amount, status, created_at, farmer_id,
        farmers ( name, unique_id ),
        items ( name )`
     )
@@ -92,9 +92,18 @@ export default async function ReportsPage() {
   const pendingBookingsList = activeBookings.filter((b) => b.status === "Pending");
   const expectedBalance = pendingBookingsList.reduce((sum, b) => sum + Number(b.balance_amount), 0);
   
-  // Cash Collected on Delivery: Balance collected strictly on Completed orders
-  const completedBookingsList = activeBookings.filter((b) => b.status === "Completed");
-  const cashCollected = completedBookingsList.reduce((sum, b) => sum + Number(b.balance_amount), 0);
+  const harvestPendingList = activeBookings.filter((b) => b.status === "HarvestPending");
+  const expectedHarvestBalance = harvestPendingList.reduce((sum, b) => sum + Number(b.harvest_amount || 0), 0);
+  
+  // Cash Collected on Delivery: Balance collected strictly on Completed and HarvestPending orders
+  const deliveryCashCollected = activeBookings
+    .filter((b) => b.status === "Completed" || b.status === "HarvestPending")
+    .reduce((sum, b) => sum + Number(b.balance_amount), 0);
+
+  // Cash Collected on Harvest:
+  const harvestCashCollected = activeBookings
+    .filter((b) => b.status === "Completed")
+    .reduce((sum, b) => sum + Number(b.harvest_amount || 0), 0);
   
   // Advance vs Full Payments logic
   let advanceCount = 0;
@@ -113,7 +122,7 @@ export default async function ReportsPage() {
     }
   });
 
-  const totalRevenueEarned = advanceRevenue + fullPaymentRevenue + cashCollected;
+  const totalRevenueEarned = advanceRevenue + fullPaymentRevenue + deliveryCashCollected + harvestCashCollected;
 
   const pageTitle =
     isOfficer
@@ -191,8 +200,22 @@ export default async function ReportsPage() {
                 <CardTitle className="text-sm font-medium text-blue-800">Expected Balances</CardTitle>
               </CardHeader>
               <CardContent>
-                <div className="text-2xl font-bold text-blue-700">₹ {expectedBalance.toLocaleString("en-IN")}</div>
-                <p className="text-xs text-blue-600 mt-1">Pending delivery payouts</p>
+                <div className="flex justify-between items-end">
+                  <div>
+                    <div className="text-xl font-bold text-blue-700">₹ {(expectedBalance + expectedHarvestBalance).toLocaleString("en-IN")}</div>
+                    <p className="text-xs text-blue-600 mt-1">Total pending payouts</p>
+                  </div>
+                </div>
+                <div className="mt-3 text-xs text-blue-600 space-y-1">
+                  <div className="flex justify-between">
+                    <span>Delivery Due:</span>
+                    <span className="font-semibold">₹ {expectedBalance.toLocaleString("en-IN")}</span>
+                  </div>
+                  <div className="flex justify-between">
+                    <span>Harvest Due:</span>
+                    <span className="font-semibold">₹ {expectedHarvestBalance.toLocaleString("en-IN")}</span>
+                  </div>
+                </div>
               </CardContent>
             </Card>
 
@@ -223,8 +246,12 @@ export default async function ReportsPage() {
                     <span className="font-semibold">₹ {fullPaymentRevenue.toLocaleString("en-IN")}</span>
                   </div>
                   <div className="flex justify-between items-center text-sm border-t pt-1 mt-1">
-                    <span className="text-gray-600">COD Gathered:</span>
-                    <span className="font-semibold text-emerald-600">₹ {cashCollected.toLocaleString("en-IN")}</span>
+                    <span className="text-gray-600">Delivery COD:</span>
+                    <span className="font-semibold text-emerald-600">₹ {deliveryCashCollected.toLocaleString("en-IN")}</span>
+                  </div>
+                  <div className="flex justify-between items-center text-sm border-t pt-1 mt-1">
+                    <span className="text-gray-600">Harvest COD:</span>
+                    <span className="font-semibold text-emerald-600">₹ {harvestCashCollected.toLocaleString("en-IN")}</span>
                   </div>
                 </div>
               </CardContent>
@@ -310,6 +337,8 @@ export default async function ReportsPage() {
                         className={`px-2 py-1 text-xs rounded-full whitespace-nowrap ${
                           b.status === "Completed"
                             ? "bg-green-100 text-green-800"
+                            : b.status === "HarvestPending"
+                            ? "bg-amber-100 text-amber-800"
                             : b.status === "Cancelled"
                             ? "bg-red-100 text-red-700"
                             : "bg-orange-100 text-orange-800"

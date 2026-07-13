@@ -15,6 +15,7 @@ interface BookingInfo {
   total_amount: number;
   booking_amount: number;
   balance_amount: number;
+  harvest_amount?: number;
   created_at: string;
   farmer: {
     name: string;
@@ -72,16 +73,24 @@ async function generatePDFBlob(booking: BookingInfo, payMethod: string): Promise
     headStyles: { fillColor: [22, 163, 74] },
   });
 
-  const finalY = (doc as any).lastAutoTable.finalY || 95;
+  let finalY = (doc as any).lastAutoTable.finalY || 95;
   doc.setFontSize(9);
   doc.setTextColor(120, 120, 120);
   doc.text(
     `Rate locked at booking time: \u20b9${booking.rate_snapshot || (booking.qty ? (booking.total_amount / booking.qty) : booking.item.rate_per_unit)}/unit`,
     14, finalY + 8
   );
+  
+  if (booking.harvest_amount && booking.harvest_amount > 0) {
+    doc.setFontSize(11);
+    doc.setTextColor(234, 88, 12);
+    doc.text(`Harvest Payment Due: \u20b9${booking.harvest_amount.toLocaleString("en-IN")}`, 14, finalY + 16);
+    finalY += 8;
+  }
+
   doc.setFontSize(13);
   doc.setTextColor(0, 128, 0);
-  doc.text("\u2713 DELIVERED \u2014 PAYMENT COMPLETED", 14, finalY + 18);
+  doc.text("\u2713 DELIVERED \u2014 DELIVERY PAYMENT COMPLETED", 14, finalY + 18);
 
   return doc.output('blob');
 }
@@ -132,6 +141,9 @@ export function PDFButton({ booking }: { booking: BookingInfo }) {
 
     // Generate WhatsApp Text
     let text = `Hello ${booking.farmer?.name || "Farmer"},\nYour Bio Eagle Petroleum Delivery is Complete.\nFarmer ID: ${booking.farmer?.unique_id || "N/A"}\nItem: ${booking.item?.name || "N/A"}\nQuantity: ${booking.qty}\nTotal Cost: ₹${booking.total_amount?.toLocaleString("en-IN")}\nBalance Paid: ₹${booking.balance_amount?.toLocaleString("en-IN")}\n`;
+    if (booking.harvest_amount && booking.harvest_amount > 0) {
+      text += `Due at Harvest: ₹${booking.harvest_amount.toLocaleString("en-IN")}\n`;
+    }
     if (remoteUrl) {
       text += `\nDownload Final Slip: ${remoteUrl}\n`;
     }

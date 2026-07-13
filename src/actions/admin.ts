@@ -146,11 +146,13 @@ export async function createItem(data: FormData) {
   const name = data.get("name") as string;
   const rate_per_unit = parseFloat(data.get("rate_per_unit") as string);
   const advance_percentage = parseFloat(data.get("advance_percentage") as string || "10");
-  if (!name || isNaN(rate_per_unit) || isNaN(advance_percentage)) return { error: "Invalid item data" };
+  const harvest_rate = parseFloat(data.get("harvest_rate") as string || "0");
+  if (!name || isNaN(rate_per_unit) || isNaN(advance_percentage) || isNaN(harvest_rate)) return { error: "Invalid item data" };
   
   if (name.length > 200) return { error: "Name is too long." };
   if (rate_per_unit < 0 || rate_per_unit > 1000000) return { error: "Invalid rate per unit." };
   if (advance_percentage < 0 || advance_percentage > 100) return { error: "Invalid advance percentage." };
+  if (harvest_rate < 0 || harvest_rate > 1000000) return { error: "Invalid harvest rate." };
 
   const { createClient } = await import("@/lib/supabase/server");
   const supabase = await createClient();
@@ -170,7 +172,7 @@ export async function createItem(data: FormData) {
   const supabaseAdmin = createAdminClient();
   const { error } = await supabaseAdmin
     .from("items")
-    .insert({ name, rate_per_unit, advance_percentage });
+    .insert({ name, rate_per_unit, advance_percentage, harvest_rate });
   if (error) return { error: error.message };
 
   revalidatePath("/admin");

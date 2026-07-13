@@ -1,7 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { createClient } from "@/lib/supabase/server";
 import { createAdminClient } from "@/lib/supabase/admin";
-import crypto from "crypto";
 import { revalidatePath } from "next/cache";
 import { logTransaction } from "@/lib/transaction-logger";
 
@@ -37,10 +36,10 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ error: "Booking ID is required" }, { status: 400 });
     }
 
-    // Fetch booking to verify the balance amount securely on backend
+    // Fetch booking to verify the harvest amount securely on backend
     const { data: booking, error: bookingErr } = await supabase
       .from("bookings")
-      .select("balance_amount, farmer_id, item_id, total_amount, harvest_amount")
+      .select("harvest_amount, farmer_id, item_id, total_amount, status")
       .eq("id", bookingId)
       .single();
 
@@ -48,21 +47,14 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ error: "Booking not found" }, { status: 404 });
     }
 
-    // We removed online payment verification here because for the balance 
-    // we only support cash or manual QR code verification as requested.
-    // If online method is passed, we will treat it as a manual QR verification for now.
-    
-    // For cash or qr: no signature needed — dealer confirms receipt of cash or qr payment
+    if (booking.status !== "HarvestPending") {
+      return NextResponse.json({ error: "Booking is not pending harvest collection." }, { status: 400 });
+    }
 
-
-    const nextStatus = (booking.harvest_amount && booking.harvest_amount > 0) ? "HarvestPending" : "Completed";
-
-    // Mark booking as Completed or HarvestPending
+    // Mark booking as Completed and Harvest Status Paid
     const updateData: Record<string, any> = {
-      status: nextStatus,
-      balance_payment_method: paymentMethod,
-      delivered_at: new Date().toISOString(),
-      delivered_by: user.id,
+      status: "Completed",
+      harvest_status: "Paid",
     };
 
     const adminClient = createAdminClient();
@@ -70,25 +62,15 @@ export async function POST(req: NextRequest) {
       .from("bookings")
       .update(updateData)
       .eq("id", bookingId)
-      .eq("status", "Pending")
+      .eq("status", "HarvestPending")
       .select();
 
     if (updateError || !updatedRows || updatedRows.length === 0) {
-      // Fallback: update with just status
-      const { error: fallbackErr, data: fallbackRows } = await adminClient
-        .from("bookings")
-        .update({ status: nextStatus })
-        .eq("id", bookingId)
-        .eq("status", "Pending")
-        .select();
-
-      if (fallbackErr || !fallbackRows || fallbackRows.length === 0) {
-        return NextResponse.json({ error: fallbackErr?.message ?? "Could not update booking. It may have been modified already." }, { status: 500 });
-      }
+      return NextResponse.json({ error: updateError?.message ?? "Could not update booking. It may have been modified already." }, { status: 500 });
     }
 
     // — Transaction Logging —
-    const balanceAmt = Number(booking?.balance_amount || 0);
+    const harvestAmt = Number(booking?.harvest_amount || 0);
     const farmerIdForLog = booking?.farmer_id;
 
     // Fetch farmer & item name for metadata
@@ -106,42 +88,40 @@ export async function POST(req: NextRequest) {
     const completeMeta = {
       item_name: itemName,
       farmer_name: farmerName,
-      payment_method_balance: paymentMethod,
+      payment_method_harvest: paymentMethod,
       total_amount: Number(booking?.total_amount || 0),
     };
 
-    if (balanceAmt > 0) {
+    if (harvestAmt > 0) {
       await logTransaction({
         bookingId,
         farmerId: farmerIdForLog || "",
-        action: "BALANCE_COLLECTED",
-        amount: balanceAmt,
+        action: "BALANCE_COLLECTED", // Using BALANCE_COLLECTED for now, but conceptually it's Harvest Collection
+        amount: harvestAmt,
         paymentMethod,
         performedBy: user.id,
         performerName: profile?.name || user.email || "Unknown",
         performerRole: profile?.role || "Unknown",
-        metadata: completeMeta,
+        metadata: { ...completeMeta, is_harvest_payment: true },
       });
     }
 
-    if (nextStatus === "Completed") {
-      await logTransaction({
-        bookingId,
-        farmerId: farmerIdForLog || "",
-        action: "BOOKING_COMPLETED",
-        amount: Number(booking?.total_amount || 0),
-        paymentMethod,
-        performedBy: user.id,
-        performerName: profile?.name || user.email || "Unknown",
-        performerRole: profile?.role || "Unknown",
-        metadata: completeMeta,
-      });
-    }
+    await logTransaction({
+      bookingId,
+      farmerId: farmerIdForLog || "",
+      action: "BOOKING_COMPLETED",
+      amount: Number(booking?.total_amount || 0),
+      paymentMethod,
+      performedBy: user.id,
+      performerName: profile?.name || user.email || "Unknown",
+      performerRole: profile?.role || "Unknown",
+      metadata: completeMeta,
+    });
 
     revalidatePath("/", "layout");
     return NextResponse.json({ success: true });
   } catch (err: any) {
-    console.error("[/api/bookings/complete]", err);
+    console.error("[/api/bookings/harvest-collect]", err);
     return NextResponse.json(
       { error: err?.message ?? "Unknown server error" },
       { status: 500 }

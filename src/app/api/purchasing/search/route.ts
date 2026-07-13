@@ -65,12 +65,13 @@ export async function GET(req: NextRequest) {
         total_amount,
         booking_amount,
         balance_amount,
+        harvest_amount,
         status,
         created_at,
         farmer:farmers ( id, name, unique_id, phone, address ),
         item:items ( id, name, rate_per_unit )
       `)
-      .eq("status", "Pending")
+      .in("status", ["Pending", "HarvestPending"])
       .in("farmer_id", farmerIds);
 
     if (bookingError) {

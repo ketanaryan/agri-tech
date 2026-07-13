@@ -67,7 +67,7 @@ export default async function TelecallerPage({
   let query = supabase
     .from("bookings")
     .select(
-      `id, farmer_id, balance_amount, created_at, status,
+      `id, farmer_id, balance_amount, harvest_amount, created_at, status,
        farmers!inner ( name, phone, unique_id ),
        items ( name )`
     )
@@ -114,7 +114,7 @@ export default async function TelecallerPage({
     logsByBooking[log.booking_id].push(log);
   });
 
-  const statuses = ["All", "Pending", "Delivered", "Completed", "Cancelled"];
+  const statuses = ["All", "Pending", "HarvestPending", "Delivered", "Completed", "Cancelled"];
 
   return (
     <div className="space-y-6">
@@ -209,6 +209,10 @@ export default async function TelecallerPage({
                             </span>
                           ) : b.status === "Cancelled" ? (
                             <span className="text-gray-400">—</span>
+                          ) : b.status === "HarvestPending" ? (
+                            <span className="text-amber-600">
+                              ₹ {Number(b.harvest_amount).toLocaleString("en-IN")}
+                            </span>
                           ) : (
                             <span className="text-orange-600">
                               ₹ {Number(b.balance_amount).toLocaleString("en-IN")}
@@ -218,6 +222,7 @@ export default async function TelecallerPage({
                         <TableCell>
                           <span className={`px-2 py-1 text-[10px] uppercase font-bold tracking-wider rounded-full ${
                             b.status === "Pending" ? "bg-orange-100 text-orange-700" :
+                            b.status === "HarvestPending" ? "bg-amber-100 text-amber-800" :
                             b.status === "Delivered" ? "bg-blue-100 text-blue-700" :
                             b.status === "Completed" ? "bg-green-100 text-green-700" :
                             "bg-gray-100 text-gray-700"

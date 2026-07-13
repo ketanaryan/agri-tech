@@ -26,6 +26,7 @@ interface Item {
   name: string;
   rate_per_unit: number;
   advance_percentage?: number;
+  harvest_rate?: number;
 }
 
 interface CreateBookingFormProps {
@@ -81,8 +82,9 @@ export function CreateBookingForm({ farmers, items, mode = "both", dealerQrCodeU
   
   // Use custom advance percentage if specified, otherwise 10%
   const advancePercent = selectedItem?.advance_percentage ?? 10;
-  const checkoutAmount = payType === "full" ? totalAmount : Math.round(totalAmount * (advancePercent / 100) * 100) / 100;
-  const balanceAmount = Math.round((totalAmount - checkoutAmount) * 100) / 100;
+  const harvestAmount = selectedItem ? (selectedItem.harvest_rate || 0) * qty : 0;
+  const checkoutAmount = payType === "full" ? (totalAmount - harvestAmount) : Math.round(totalAmount * (advancePercent / 100) * 100) / 100;
+  const balanceAmount = Math.round((totalAmount - checkoutAmount - harvestAmount) * 100) / 100;
 
   // Replacement plants: 10% free buffer — no charge
   const replacementQty = qty > 0 ? Math.floor(qty * 0.1) : 0;
@@ -238,9 +240,14 @@ export function CreateBookingForm({ farmers, items, mode = "both", dealerQrCodeU
       doc.setTextColor(220, 38, 38);
       doc.text(`Balance Due at Delivery: Rs. ${balanceAmount.toFixed(2)}`, 20, 150);
       
+      if (harvestAmount > 0) {
+         doc.setTextColor(234, 88, 12); // orange-600
+         doc.text(`Harvest Payment Due: Rs. ${harvestAmount.toFixed(2)}`, 20, 158);
+      }
+      
       doc.setTextColor(100, 100, 100);
       doc.setFontSize(10);
-      doc.text("This is an electronically generated receipt.", 20, 162);
+      doc.text("This is an electronically generated receipt.", 20, 170);
 
       const pdfBlob = doc.output('blob');
       const localPdfUrl = URL.createObjectURL(pdfBlob);
@@ -264,7 +271,11 @@ export function CreateBookingForm({ farmers, items, mode = "both", dealerQrCodeU
 
       const waReplacementQty = Math.floor(qty * 0.1);
       const waTotalDelivered = qty + waReplacementQty;
-      let waText = `Hello ${fName},\nYour Bio Eagle Petroleum Booking is Confirmed! 🌱\n\nFarmer ID: ${fUid}\nItem: ${itemName}\n\n📦 Ordered: ${qty} plants\n🎁 Free Replacement (10%): ${waReplacementQty} plants\n✅ Total Delivery: ${waTotalDelivered} plants\n\n💰 ${payType === "full" ? "Total Paid" : "Advance Paid"}: ₹${checkoutAmount.toLocaleString("en-IN", { minimumFractionDigits: 2 })}\n💵 Balance Due at Delivery: ₹${balanceAmount.toLocaleString("en-IN", { minimumFractionDigits: 2 })}\n`;
+      let waText = `Hello ${fName},\nYour Bio Eagle Petroleum Booking is Confirmed! 🌱\n\nFarmer ID: ${fUid}\nItem: ${itemName}\n\n📦 Ordered: ${qty} plants\n🎁 Free Replacement (10%): ${waReplacementQty} plants\n✅ Total Delivery: ${waTotalDelivered} plants\n\n💰 ${payType === "full" ? "Total Paid" : "Advance Paid"}: ₹${checkoutAmount.toLocaleString("en-IN", { minimumFractionDigits: 2 })}\n💵 Balance Due at Delivery: ₹${balanceAmount.toLocaleString("en-IN", { minimumFractionDigits: 2 })}`;
+      if (harvestAmount > 0) {
+         waText += `\n🌾 Due at Harvest: ₹${harvestAmount.toLocaleString("en-IN", { minimumFractionDigits: 2 })}`;
+      }
+      waText += `\n`;
       if (publicReceiptUrl) {
          waText += `\n📄 Download Receipt: ${publicReceiptUrl}\n`;
       }
@@ -629,6 +640,12 @@ export function CreateBookingForm({ farmers, items, mode = "both", dealerQrCodeU
             <span>Balance at Delivery:</span>
             <span>₹{balanceAmount.toLocaleString("en-IN", { minimumFractionDigits: 2 })}</span>
           </div>
+          {harvestAmount > 0 && (
+            <div className="flex justify-between text-amber-600 font-medium text-xs mt-1">
+              <span>🌾 Post-Harvest Payment:</span>
+              <span>₹{harvestAmount.toLocaleString("en-IN", { minimumFractionDigits: 2 })}</span>
+            </div>
+          )}
           <p className="text-xs text-gray-400">
             📷 A QR code will be displayed for manual payment verification.
           </p>
