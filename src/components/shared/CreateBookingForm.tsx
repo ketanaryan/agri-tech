@@ -330,8 +330,20 @@ export function CreateBookingForm({ farmers, items, mode = "both", dealerQrCodeU
     setMsg(null);
 
     try {
-      // Show QR Modal for all online payments
-      setShowQrModal(true);
+      if (checkoutAmount === 0) {
+        // If there's no advance payment to collect, bypass the QR modal
+        startTransition(async () => {
+          await createBookingInDB({
+            gateway_order_id: "no_payment_required",
+            method: "none",
+            payment_receipt_url: undefined,
+            utr_number: undefined,
+          });
+        });
+      } else {
+        // Show QR Modal to collect payment
+        setShowQrModal(true);
+      }
       return;
     } catch (err: any) {
       setMsg({ text: err?.message ?? "An unexpected error occurred.", type: "error" });
