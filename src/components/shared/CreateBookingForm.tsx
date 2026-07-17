@@ -86,8 +86,9 @@ export function CreateBookingForm({ farmers, items, mode = "both", dealerQrCodeU
   const checkoutAmount = payType === "full" ? (totalAmount - harvestAmount) : Math.round(totalAmount * (advancePercent / 100) * 100) / 100;
   const balanceAmount = Math.round((totalAmount - checkoutAmount - harvestAmount) * 100) / 100;
 
-  // Replacement plants: 10% free buffer — no charge
-  const replacementQty = qty > 0 ? Math.floor(qty * 0.1) : 0;
+  // Replacement plants: 10% free buffer — no charge (except Anar)
+  const isAnar = selectedItem?.name?.toLowerCase().includes("anar");
+  const replacementQty = (qty > 0 && !isAnar) ? Math.floor(qty * 0.1) : 0;
   const totalDelivered = qty + replacementQty;
 
   const handleFileChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -226,11 +227,14 @@ export function CreateBookingForm({ farmers, items, mode = "both", dealerQrCodeU
       doc.text(`Total Amount: Rs. ${totalAmount.toFixed(2)}`, 20, 114);
 
       // Replacement plants info
-      const localReplacementQty = Math.floor(qty * 0.1);
+      const isAnarItem = itemName?.toLowerCase().includes("anar");
+      const localReplacementQty = isAnarItem ? 0 : Math.floor(qty * 0.1);
       const localTotalDelivered = qty + localReplacementQty;
       doc.setFontSize(11);
       doc.setTextColor(21, 128, 61); // green-700
-      doc.text(`Free Replacement Plants (10%): ${localReplacementQty} plants (No charge)`, 20, 122);
+      if (localReplacementQty > 0) {
+        doc.text(`Free Replacement Plants (10%): ${localReplacementQty} plants (No charge)`, 20, 122);
+      }
       doc.text(`Total Plants to be Delivered: ${localTotalDelivered} plants`, 20, 130);
 
       doc.setFontSize(12);
@@ -269,9 +273,15 @@ export function CreateBookingForm({ farmers, items, mode = "both", dealerQrCodeU
         console.error("Failed to upload receipt", e);
       }
 
-      const waReplacementQty = Math.floor(qty * 0.1);
+      const isAnarItemWa = itemName?.toLowerCase().includes("anar");
+      const waReplacementQty = isAnarItemWa ? 0 : Math.floor(qty * 0.1);
       const waTotalDelivered = qty + waReplacementQty;
-      let waText = `Hello ${fName},\nYour Bio Eagle Petroleum Booking is Confirmed! 🌱\n\nFarmer ID: ${fUid}\nItem: ${itemName}\n\n📦 Ordered: ${qty} plants\n🎁 Free Replacement (10%): ${waReplacementQty} plants\n✅ Total Delivery: ${waTotalDelivered} plants\n\n💰 ${payType === "full" ? "Total Paid" : "Advance Paid"}: ₹${checkoutAmount.toLocaleString("en-IN", { minimumFractionDigits: 2 })}\n💵 Balance Due at Delivery: ₹${balanceAmount.toLocaleString("en-IN", { minimumFractionDigits: 2 })}`;
+      
+      let waText = `Hello ${fName},\nYour Bio Eagle Petroleum Booking is Confirmed! 🌱\n\nFarmer ID: ${fUid}\nItem: ${itemName}\n\n📦 Ordered: ${qty} plants\n`;
+      if (waReplacementQty > 0) {
+        waText += `🎁 Free Replacement (10%): ${waReplacementQty} plants\n`;
+      }
+      waText += `✅ Total Delivery: ${waTotalDelivered} plants\n\n💰 ${payType === "full" ? "Total Paid" : "Advance Paid"}: ₹${checkoutAmount.toLocaleString("en-IN", { minimumFractionDigits: 2 })}\n💵 Balance Due at Delivery: ₹${balanceAmount.toLocaleString("en-IN", { minimumFractionDigits: 2 })}`;
       if (harvestAmount > 0) {
          waText += `\n🌾 Due at Harvest: ₹${harvestAmount.toLocaleString("en-IN", { minimumFractionDigits: 2 })}`;
       }
