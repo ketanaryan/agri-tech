@@ -2,7 +2,7 @@ import type { CapacitorConfig } from '@capacitor/cli';
 
 const config: CapacitorConfig = {
   appId: 'com.agritech.app',
-  appName: 'AgriTech',
+  appName: 'Bioeagle',
   webDir: 'public',
   server: {
     url: 'https://agri-tech-gules.vercel.app',
