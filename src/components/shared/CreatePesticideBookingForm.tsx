@@ -45,13 +45,7 @@ export function CreatePesticideBookingForm({ farmers, pesticides, dealerQrCodeUr
   const [isPending, startTransition] = useTransition();
   const [showQrModal, setShowQrModal] = useState(false);
 
-  // Receipt Upload State for QR Modal
-  const [receiptPreview, setReceiptPreview] = useState<string | null>(null);
-  const [receiptUrl, setReceiptUrl] = useState<string>("");
-  const [uploadingReceipt, setUploadingReceipt] = useState(false);
-  const [receiptError, setReceiptError] = useState<string | null>(null);
-  const [utrNumber, setUtrNumber] = useState("");
-  const receiptFileInputRef = useRef<HTMLInputElement>(null);
+
 
   const qty = parseFloat(qtyStr) || 0;
   const selectedPesticide = pesticides.find((p) => p.id === pesticideId);
@@ -65,36 +59,7 @@ export function CreatePesticideBookingForm({ farmers, pesticides, dealerQrCodeUr
   const replacementQty = 0;
   const totalDelivered = qty;
 
-  const handleReceiptChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
-    const file = e.target.files?.[0];
-    if (!file) return;
 
-    const reader = new FileReader();
-    reader.onload = (ev) => setReceiptPreview(ev.target?.result as string);
-    reader.readAsDataURL(file);
-
-    setUploadingReceipt(true);
-    setReceiptError(null);
-    setReceiptUrl("");
-
-    try {
-      const fd = new FormData();
-      fd.append("photo", file);
-      const res = await fetch("/api/upload-farmer-photo", { method: "POST", body: fd });
-      const json = await res.json();
-      if (!res.ok) {
-        setReceiptError(json.error || "Upload failed");
-        setReceiptPreview(null);
-      } else {
-        setReceiptUrl(json.url);
-      }
-    } catch {
-      setReceiptError("Network error during upload");
-      setReceiptPreview(null);
-    } finally {
-      setUploadingReceipt(false);
-    }
-  };
 
   const createBookingInDB = async (paymentData?: {
     gateway_order_id?: string;
@@ -241,17 +206,11 @@ export function CreatePesticideBookingForm({ farmers, pesticides, dealerQrCodeUr
   };
 
   const handleManualQrPaid = () => {
-    if (!receiptUrl || !utrNumber) {
-       setReceiptError("Receipt screenshot and UTR number are required.");
-       return;
-    }
     setShowQrModal(false);
     startTransition(async () => {
       await createBookingInDB({
         gateway_order_id: "qr_payment",
         method: "qr",
-        payment_receipt_url: receiptUrl,
-        utr_number: utrNumber,
       });
     });
   };
@@ -444,7 +403,7 @@ export function CreatePesticideBookingForm({ farmers, pesticides, dealerQrCodeUr
           <DialogHeader>
             <DialogTitle>Complete Payment via QR</DialogTitle>
             <DialogDescription>
-              Please scan the QR code below to pay ₹{checkoutAmount.toFixed(2)}. Once paid, upload the receipt screenshot and enter the UTR number.
+              Please scan the QR code below to pay ₹{checkoutAmount.toFixed(2)}. Once paid, click "Payment Done".
             </DialogDescription>
           </DialogHeader>
           <div className="flex flex-col items-center p-2 space-y-4">
@@ -457,39 +416,13 @@ export function CreatePesticideBookingForm({ farmers, pesticides, dealerQrCodeUr
                  No QR Code found for this Dealer. Please pay directly and attach receipt.
               </div>
             )}
-            
-            <div className="w-full space-y-3 mt-4">
-               <div className="space-y-1">
-                 <Label>Upload Payment Screenshot</Label>
-                 <div className="flex items-center gap-3">
-                   {receiptPreview ? (
-                      <div className="w-12 h-12 relative rounded border border-gray-200">
-                        <Image src={receiptPreview} fill alt="Receipt" className="object-cover rounded" />
-                      </div>
-                   ) : null}
-                   <div className="flex-1">
-                     <Button type="button" variant="outline" className="w-full" onClick={() => receiptFileInputRef.current?.click()} disabled={uploadingReceipt}>
-                       {uploadingReceipt ? "Uploading..." : receiptUrl ? "Change Screenshot" : "Upload Screenshot"}
-                     </Button>
-                     <input ref={receiptFileInputRef} type="file" accept="image/*" className="hidden" onChange={handleReceiptChange} />
-                   </div>
-                 </div>
-               </div>
-               
-               <div className="space-y-1">
-                 <Label>Transaction UTR Number</Label>
-                 <Input value={utrNumber} onChange={(e) => setUtrNumber(e.target.value)} placeholder="Enter 12-digit UTR number" />
-               </div>
-
-               {receiptError && <p className="text-sm text-red-600">{receiptError}</p>}
-            </div>
           </div>
           <DialogFooter className="flex gap-2 justify-end">
-            <Button variant="outline" onClick={() => setShowQrModal(false)} disabled={isPending || uploadingReceipt}>
+            <Button variant="outline" onClick={() => setShowQrModal(false)} disabled={isPending}>
               Cancel
             </Button>
-            <Button className="bg-green-600 hover:bg-green-700" onClick={handleManualQrPaid} disabled={isPending || uploadingReceipt || !receiptUrl || !utrNumber}>
-              {isPending ? "Processing..." : "Submit Payment"}
+            <Button className="bg-green-600 hover:bg-green-700" onClick={handleManualQrPaid} disabled={isPending}>
+              {isPending ? "Processing..." : "Payment Done"}
             </Button>
           </DialogFooter>
         </DialogContent>
