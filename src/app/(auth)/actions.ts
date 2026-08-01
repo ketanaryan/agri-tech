@@ -3,6 +3,7 @@
 import { createClient } from "@/lib/supabase/server"
 import { createAdminClient } from "@/lib/supabase/admin"
 import { redirect } from "next/navigation"
+import { revalidatePath } from "next/cache"
 
 export async function loginAction(formData: FormData) {
   const identifier = (formData.get("email") as string)?.trim()
@@ -49,5 +50,6 @@ export async function loginAction(formData: FormData) {
     return { error: "Invalid credentials. Check your ID/Email and password." }
   }
 
+  revalidatePath("/", "layout")
   redirect("/")
 }
