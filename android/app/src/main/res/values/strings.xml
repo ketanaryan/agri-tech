@@ -1,0 +1,7 @@
+<?xml version='1.0' encoding='utf-8'?>
+<resources>
+    <string name="app_name">AgriTech</string>
+    <string name="title_activity_main">AgriTech</string>
+    <string name="package_name">com.agritech.app</string>
+    <string name="custom_url_scheme">com.agritech.app</string>
+</resources>
