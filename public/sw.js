@@ -1,4 +1,4 @@
-const CACHE_NAME = "agritech-v1";
+const CACHE_NAME = "agritech-v2";
 const OFFLINE_URL = "/login";
 
 // Assets to pre-cache on install
@@ -6,6 +6,7 @@ const PRECACHE_ASSETS = [
   "/",
   "/login",
   "/manifest.json",
+  "/icon-192.png",
   "/icon-512.png",
 ];
 
