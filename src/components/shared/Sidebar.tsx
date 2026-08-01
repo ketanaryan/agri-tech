@@ -21,8 +21,14 @@ import {
 
 function InstallAppButton() {
   const [deferredPrompt, setDeferredPrompt] = React.useState<any>(null);
+  const [isStandalone, setIsStandalone] = React.useState(false);
 
   React.useEffect(() => {
+    // Check if already installed and running as PWA
+    if (window.matchMedia("(display-mode: standalone)").matches || (window.navigator as any).standalone) {
+      setIsStandalone(true);
+    }
+
     const handler = (e: any) => {
       e.preventDefault();
       setDeferredPrompt(e);
@@ -31,7 +37,7 @@ function InstallAppButton() {
     return () => window.removeEventListener("beforeinstallprompt", handler);
   }, []);
 
-  if (!deferredPrompt) return null;
+  if (isStandalone) return null;
 
   return (
     <button
@@ -41,7 +47,10 @@ function InstallAppButton() {
           const { outcome } = await deferredPrompt.userChoice;
           if (outcome === "accepted") {
             setDeferredPrompt(null);
+            setIsStandalone(true);
           }
+        } else {
+          alert("To install the app, tap 'Share' -> 'Add to Home Screen' (on iOS) or 'Install App' / 'Add to Home screen' from your browser menu (on Android).");
         }
       }}
       className="flex w-auto mx-3 mb-3 items-center gap-3 px-4 py-2.5 text-sm font-medium rounded-lg transition-all duration-150 text-emerald-700 bg-emerald-100 hover:bg-emerald-200"
