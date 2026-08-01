@@ -3,6 +3,7 @@ import "./globals.css";
 import { Geist } from "next/font/google";
 import { cn } from "@/lib/utils";
 import { PWARegister } from "@/components/shared/PWARegister";
+import { Analytics } from "@vercel/analytics/react";
 
 const geist = Geist({ subsets: ["latin"], variable: "--font-sans" });
 
@@ -46,6 +47,7 @@ export default function RootLayout({
         <NextTopLoader color="#16a34a" showSpinner={false} />
         {children}
         <PWARegister />
+        <Analytics />
       </body>
     </html>
   );
