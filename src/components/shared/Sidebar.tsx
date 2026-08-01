@@ -16,7 +16,41 @@ import {
   BarChart3,
   Package,
   UserPlus,
+  Download,
 } from "lucide-react";
+
+function InstallAppButton() {
+  const [deferredPrompt, setDeferredPrompt] = React.useState<any>(null);
+
+  React.useEffect(() => {
+    const handler = (e: any) => {
+      e.preventDefault();
+      setDeferredPrompt(e);
+    };
+    window.addEventListener("beforeinstallprompt", handler);
+    return () => window.removeEventListener("beforeinstallprompt", handler);
+  }, []);
+
+  if (!deferredPrompt) return null;
+
+  return (
+    <button
+      onClick={async () => {
+        if (deferredPrompt) {
+          deferredPrompt.prompt();
+          const { outcome } = await deferredPrompt.userChoice;
+          if (outcome === "accepted") {
+            setDeferredPrompt(null);
+          }
+        }
+      }}
+      className="flex w-auto mx-3 mb-3 items-center gap-3 px-4 py-2.5 text-sm font-medium rounded-lg transition-all duration-150 text-emerald-700 bg-emerald-100 hover:bg-emerald-200"
+    >
+      <Download className="w-4 h-4 flex-shrink-0" />
+      Install App
+    </button>
+  );
+}
 
 type UserRole = "Admin" | "FieldOfficer" | "Dealer" | "Telecaller" | string;
 
@@ -148,6 +182,8 @@ export function Sidebar({ role }: SidebarProps) {
             );
           })}
         </nav>
+        
+        <InstallAppButton />
 
         {/* Footer branding */}
         <div className="p-4 border-t border-green-100">
