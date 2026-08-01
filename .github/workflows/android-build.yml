@@ -29,6 +29,9 @@ jobs:
           distribution: 'zulu'
           java-version: '17'
 
+      - name: Sync Capacitor
+        run: npx cap sync android
+
       - name: Build Android App (APK)
         working-directory: android
         run: |
