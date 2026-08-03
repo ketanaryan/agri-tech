@@ -155,6 +155,7 @@ export default async function AdminPage() {
             <CreateUserForm
               allowedRoles={[
                 { value: "Admin", label: "Admin" },
+                { value: "SuperDistributor", label: "Super Distributor" },
                 { value: "FieldOfficer", label: "Field Officer" },
                 { value: "Dealer", label: "Dealer" },
                 { value: "Telecaller", label: "Telecaller" },

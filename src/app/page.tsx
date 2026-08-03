@@ -18,6 +18,7 @@ export default async function Home() {
     if (profile) {
       switch (profile.role) {
         case "Admin": redirect("/admin");
+        case "SuperDistributor": redirect("/super-distributor");
         case "FieldOfficer": redirect("/bookings");
         case "Dealer": redirect("/dealer");
         case "Telecaller": redirect("/telecaller");

@@ -72,12 +72,15 @@ export async function createUserAction(
   if (!invokerRole) return { error: "Unauthorized: Missing role" };
 
   // Hierarchy enforcement
-  if (invokerRole === "Dealer") {
+  if (invokerRole === "SuperDistributor") {
+    if (role !== "Dealer")
+      return { error: "Super Distributors can only create Dealers." };
+  } else if (invokerRole === "Dealer") {
     if (role !== "FieldOfficer")
       return { error: "Dealers can only create Field Officers." };
   } else if (invokerRole === "Counselor") {
-    if (["Admin", "Telecaller", "Counselor"].includes(role))
-      return { error: "Counselors cannot create Admins, Telecallers, or Counselors." };
+    if (["Admin", "Telecaller", "Counselor", "SuperDistributor"].includes(role))
+      return { error: "Counselors cannot create Admins, Telecallers, Counselors or Super Distributors." };
   } else if (invokerRole !== "Admin") {
     return { error: "You do not have permission to create users." };
   }
@@ -86,6 +89,7 @@ export async function createUserAction(
   const prefixMap: Record<string, string> = {
     FieldOfficer: "BPFO",
     Dealer: "BPDL",
+    SuperDistributor: "BPSD",
     Telecaller: "BPTL",
     Counselor: "BPCS",
   };

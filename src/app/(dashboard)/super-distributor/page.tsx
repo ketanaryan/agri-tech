@@ -1,0 +1,206 @@
+import { createClient } from "@/lib/supabase/server";
+import { Button } from "@/components/ui/button";
+import {
+  Card,
+  CardContent,
+  CardHeader,
+  CardTitle,
+  CardDescription,
+} from "@/components/ui/card";
+import {
+  Table,
+  TableBody,
+  TableCell,
+  TableHead,
+  TableHeader,
+  TableRow,
+} from "@/components/ui/table";
+import { redirect } from "next/navigation";
+import { Users, UserPlus, Tractor, FileText } from "lucide-react";
+import { CreateUserForm } from "@/components/shared/CreateUserForm";
+import { UploadQRCard } from "@/components/shared/UploadQRCard";
+
+
+
+export default async function SuperDistributorDashboard() {
+  const supabase = await createClient();
+
+  const {
+    data: { user },
+  } = await supabase.auth.getUser();
+  if (!user) redirect("/login");
+
+  const { data: profile } = await supabase
+    .from("profiles")
+    .select("*")
+    .eq("id", user.id)
+    .single();
+
+  if (profile?.role !== "SuperDistributor" && profile?.role !== "Admin") {
+    redirect("/");
+  }
+
+  // Fetch dealers created by this super distributor (or all if admin)
+  // We scope by district if set
+  let dealersQuery = supabase
+    .from("profiles")
+    .select("*")
+    .eq("role", "Dealer")
+    .is("deleted_at", null)
+    .order("created_at", { ascending: false });
+
+  if (profile?.district) {
+    dealersQuery = dealersQuery.eq("district", profile.district);
+  }
+
+  const { data: dealers } = await dealersQuery;
+
+  // Count farmers under each officer's district
+  const { count: farmersCount } = await supabase
+    .from("farmers")
+    .select("*", { count: "exact", head: true })
+    .is("deleted_at", null)
+    .eq("district", profile?.district || "");
+
+  const { count: bookingsCount } = await supabase
+    .from("bookings")
+    .select("*", { count: "exact", head: true })
+    .is("deleted_at", null);
+
+  return (
+    <div className="space-y-6">
+      <div>
+        <h1 className="text-2xl font-bold">Super Distributor Dashboard</h1>
+        <p className="text-gray-500 text-sm mt-1">
+          Manage your Dealers and monitor team activity.
+          {profile?.district && (
+            <span className="ml-2 px-2 py-0.5 bg-green-100 text-green-800 text-xs rounded-full font-medium">
+              District: {profile.district}
+            </span>
+          )}
+        </p>
+      </div>
+
+      {/* Stats */}
+      <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+        <Card>
+          <CardHeader className="flex flex-row items-center justify-between pb-2">
+            <CardTitle className="text-sm font-medium text-gray-500">
+              Dealers
+            </CardTitle>
+            <Users className="w-4 h-4 text-blue-500" />
+          </CardHeader>
+          <CardContent>
+            <div className="text-2xl font-bold">{dealers?.length || 0}</div>
+            <p className="text-xs text-gray-500 mt-1">In your district</p>
+          </CardContent>
+        </Card>
+
+        <Card>
+          <CardHeader className="flex flex-row items-center justify-between pb-2">
+            <CardTitle className="text-sm font-medium text-gray-500">
+              Registered Farmers
+            </CardTitle>
+            <Tractor className="w-4 h-4 text-green-600" />
+          </CardHeader>
+          <CardContent>
+            <div className="text-2xl font-bold">{farmersCount || 0}</div>
+            {farmersCount === 0 ? (
+              <p className="text-xs text-orange-500 mt-1">
+                No farmers yet — ask your Field Officers to register farmers in {profile?.district ? `the ${profile.district} district` : "your district"}.
+              </p>
+            ) : (
+              <p className="text-xs text-gray-500 mt-1">In your district</p>
+            )}
+          </CardContent>
+        </Card>
+
+        <Card>
+          <CardHeader className="flex flex-row items-center justify-between pb-2">
+            <CardTitle className="text-sm font-medium text-gray-500">
+              Total Bookings
+            </CardTitle>
+            <FileText className="w-4 h-4 text-orange-500" />
+          </CardHeader>
+          <CardContent>
+            <div className="text-2xl font-bold">{bookingsCount || 0}</div>
+            <p className="text-xs text-gray-500 mt-1">System-wide</p>
+          </CardContent>
+        </Card>
+      </div>
+
+      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+        {/* Create Dealer */}
+        <Card>
+          <CardHeader>
+            <CardTitle className="flex items-center gap-2">
+              <UserPlus className="w-4 h-4 text-green-600" />
+              Create Dealer
+            </CardTitle>
+            <CardDescription>
+              Onboard a new Dealer for your district.
+            </CardDescription>
+          </CardHeader>
+          <CardContent>
+            <CreateUserForm
+              allowedRoles={[{ value: "Dealer", label: "Dealer" }]}
+              defaultRole="Dealer"
+              fixedDistrict={profile?.district || undefined}
+              showDistrictField={!profile?.district}
+            />
+          </CardContent>
+        </Card>
+
+        {/* Upload QR Card */}
+        <UploadQRCard initialQrUrl={profile?.qr_code_url || null} />
+
+        {/* My Dealers */}
+        <Card>
+          <CardHeader>
+            <CardTitle>Your Dealers</CardTitle>
+            <CardDescription>
+              Dealers in{" "}
+              {profile?.district ? `${profile.district} district` : "your team"}
+            </CardDescription>
+          </CardHeader>
+          <CardContent>
+            <div className="border rounded-md overflow-x-auto">
+              <Table>
+                <TableHeader>
+                  <TableRow>
+                    <TableHead>ID</TableHead>
+                    <TableHead>Name</TableHead>
+                    <TableHead>Phone</TableHead>
+                    <TableHead>District</TableHead>
+                  </TableRow>
+                </TableHeader>
+                <TableBody>
+                  {dealers?.map((o) => (
+                    <TableRow key={o.id}>
+                      <TableCell className="font-mono text-xs text-green-700 font-medium">
+                        {o.unique_id || "N/A"}
+                      </TableCell>
+                      <TableCell className="font-medium">{o.name}</TableCell>
+                      <TableCell className="text-gray-600">{o.phone}</TableCell>
+                      <TableCell>{o.district || "—"}</TableCell>
+                    </TableRow>
+                  ))}
+                  {dealers?.length === 0 && (
+                    <TableRow>
+                      <TableCell
+                        colSpan={4}
+                        className="h-20 text-center text-gray-500"
+                      >
+                        No Dealers found in your district.
+                      </TableCell>
+                    </TableRow>
+                  )}
+                </TableBody>
+              </Table>
+            </div>
+          </CardContent>
+        </Card>
+      </div>
+    </div>
+  );
+}
