@@ -41,10 +41,14 @@ export default async function AdminPage() {
 
   // Analytics
   const { count: globalFarmersCount } = await supabase.from("farmers").select("*", { count: "exact", head: true }).is("deleted_at", null);
-  const { data: globalBookings } = await supabase.from("bookings").select("total_amount, status").is("deleted_at", null);
+  const { data: globalBookings } = await supabase.from("bookings").select("total_amount, status, pesticide_id").is("deleted_at", null);
 
   const globalPendingCount = globalBookings?.filter(b => b.status === "Pending").length || 0;
+  
   const globalTotalValue = globalBookings?.reduce((sum, b) => sum + Number(b.total_amount), 0) || 0;
+  const globalCropValue = globalBookings?.filter(b => !b.pesticide_id).reduce((sum, b) => sum + Number(b.total_amount), 0) || 0;
+  const globalPestValue = globalBookings?.filter(b => b.pesticide_id).reduce((sum, b) => sum + Number(b.total_amount), 0) || 0;
+  
   const totalOfficers = profiles?.filter(p => p.role === "FieldOfficer").length || 0;
 
   // Low stock pesticides
@@ -100,7 +104,16 @@ export default async function AdminPage() {
             <div className="text-2xl font-bold flex items-baseline gap-1">
               <span>₹</span>{globalTotalValue.toLocaleString('en-IN')}
             </div>
-            <p className="text-xs text-gray-500 mt-1">Total combined bookings GMV</p>
+            <div className="mt-2 space-y-1">
+              <div className="flex justify-between text-xs text-gray-500">
+                <span>🌾 Crops:</span>
+                <span className="font-medium text-gray-700">₹{globalCropValue.toLocaleString('en-IN')}</span>
+              </div>
+              <div className="flex justify-between text-xs text-gray-500">
+                <span>🧪 Pesticide:</span>
+                <span className="font-medium text-gray-700">₹{globalPestValue.toLocaleString('en-IN')}</span>
+              </div>
+            </div>
           </CardContent>
         </Card>
 

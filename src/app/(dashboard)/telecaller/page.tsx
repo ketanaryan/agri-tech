@@ -67,9 +67,10 @@ export default async function TelecallerPage({
   let query = supabase
     .from("bookings")
     .select(
-      `id, farmer_id, balance_amount, harvest_amount, created_at, status,
+      `id, farmer_id, balance_amount, harvest_amount, created_at, status, pesticide_id,
        farmers!inner ( name, phone, unique_id ),
-       items ( name )`
+       items ( name ),
+       pesticide_inventory ( name )`
     )
     .is("deleted_at", null)
     .order("created_at", { ascending: false });
@@ -201,7 +202,10 @@ export default async function TelecallerPage({
                           </Link>
                           <div className="text-xs text-gray-500">{farmer?.unique_id}</div>
                         </TableCell>
-                        <TableCell>{item?.name}</TableCell>
+                        <TableCell>
+                          {/* @ts-ignore */}
+                          {item?.name || b.pesticide_inventory?.name || "Unknown"}
+                        </TableCell>
                         <TableCell className="font-bold whitespace-nowrap">
                           {b.status === "Completed" ? (
                             <span className="text-green-600 flex items-center gap-1">

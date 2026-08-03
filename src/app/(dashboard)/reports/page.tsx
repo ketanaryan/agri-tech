@@ -42,9 +42,10 @@ export default async function ReportsPage() {
   let query = supabase
     .from("bookings")
     .select(
-      `id, qty, replacement_qty, total_amount, booking_amount, balance_amount, harvest_amount, status, created_at, farmer_id,
+      `id, qty, replacement_qty, total_amount, booking_amount, balance_amount, harvest_amount, status, created_at, farmer_id, pesticide_id,
        farmers ( name, unique_id ),
-       items ( name )`
+       items ( name ),
+       pesticide_inventory ( name )`
     )
     .is("deleted_at", null)
     .order("created_at", { ascending: false });
@@ -76,6 +77,9 @@ export default async function ReportsPage() {
   const { data: bookings } = skipQuery ? { data: [] } : await query;
 
   const totalBookings = bookings?.length || 0;
+  const cropBookingsCount = bookings?.filter((b) => !b.pesticide_id).length || 0;
+  const pestBookingsCount = bookings?.filter((b) => !!b.pesticide_id).length || 0;
+
   const pendingBookings =
     bookings?.filter((b) => b.status === "Pending").length || 0;
   const completedBookings =
@@ -85,44 +89,74 @@ export default async function ReportsPage() {
   // Active Bookings (excluding cancelled)
   const activeBookings = bookings?.filter((b) => b.status !== "Cancelled") || [];
   
-  // Pipeline Value: Total sum of all active bookings
-  const pipelineValue = activeBookings.reduce((sum, b) => sum + Number(b.total_amount), 0);
+  let cropPipelineValue = 0, pestPipelineValue = 0;
   
-  // Outstanding Balance: Balance expected from pending bookings
-  const pendingBookingsList = activeBookings.filter((b) => b.status === "Pending");
-  const expectedBalance = pendingBookingsList.reduce((sum, b) => sum + Number(b.balance_amount), 0);
-  
-  const harvestPendingList = activeBookings.filter((b) => b.status === "HarvestPending");
-  const expectedHarvestBalance = harvestPendingList.reduce((sum, b) => sum + Number(b.harvest_amount || 0), 0);
-  
-  // Cash Collected on Delivery: Balance collected strictly on Completed and HarvestPending orders
-  const deliveryCashCollected = activeBookings
-    .filter((b) => b.status === "Completed" || b.status === "HarvestPending")
-    .reduce((sum, b) => sum + Number(b.balance_amount), 0);
+  let cropExpectedBalance = 0, pestExpectedBalance = 0;
+  let cropExpectedHarvest = 0, pestExpectedHarvest = 0;
 
-  // Cash Collected on Harvest:
-  const harvestCashCollected = activeBookings
-    .filter((b) => b.status === "Completed")
-    .reduce((sum, b) => sum + Number(b.harvest_amount || 0), 0);
-  
-  // Advance vs Full Payments logic
+  let cropAdvance = 0, pestAdvance = 0;
+  let cropFull = 0, pestFull = 0;
+  let cropDeliveryCash = 0, pestDeliveryCash = 0;
+  let cropHarvestCash = 0, pestHarvestCash = 0;
+
   let advanceCount = 0;
   let fullPaymentCount = 0;
-  let advanceRevenue = 0;
-  let fullPaymentRevenue = 0;
   
   activeBookings.forEach((b) => {
-    // Determine payment type by comparing booking_amount with total_amount
-    if (Number(b.booking_amount) === Number(b.total_amount) && Number(b.total_amount) > 0) {
+    const isPest = !!b.pesticide_id;
+    const totalAmt = Number(b.total_amount || 0);
+    const bookAmt = Number(b.booking_amount || 0);
+    const balAmt = Number(b.balance_amount || 0);
+    const harvAmt = Number(b.harvest_amount || 0);
+
+    // Pipeline
+    if (isPest) pestPipelineValue += totalAmt;
+    else cropPipelineValue += totalAmt;
+
+    // Expected Balances
+    if (b.status === "Pending") {
+      if (isPest) pestExpectedBalance += balAmt;
+      else cropExpectedBalance += balAmt;
+    }
+    if (b.status === "HarvestPending") {
+      if (isPest) pestExpectedHarvest += harvAmt;
+      else cropExpectedHarvest += harvAmt;
+    }
+
+    // Cash Collected on Delivery & Harvest
+    if (b.status === "Completed" || b.status === "HarvestPending") {
+      if (isPest) pestDeliveryCash += balAmt;
+      else cropDeliveryCash += balAmt;
+    }
+    if (b.status === "Completed") {
+      if (isPest) pestHarvestCash += harvAmt;
+      else cropHarvestCash += harvAmt;
+    }
+
+    // Advances and Full Payments
+    if (bookAmt === totalAmt && totalAmt > 0) {
       fullPaymentCount++;
-      fullPaymentRevenue += Number(b.booking_amount);
-    } else if (Number(b.booking_amount) > 0 || Number(b.total_amount) > 0) {
+      if (isPest) pestFull += bookAmt;
+      else cropFull += bookAmt;
+    } else if (bookAmt > 0 || totalAmt > 0) {
       advanceCount++;
-      advanceRevenue += Number(b.booking_amount);
+      if (isPest) pestAdvance += bookAmt;
+      else cropAdvance += bookAmt;
     }
   });
 
-  const totalRevenueEarned = advanceRevenue + fullPaymentRevenue + deliveryCashCollected + harvestCashCollected;
+  const pipelineValue = cropPipelineValue + pestPipelineValue;
+  const expectedBalance = cropExpectedBalance + pestExpectedBalance;
+  const expectedHarvestBalance = cropExpectedHarvest + pestExpectedHarvest;
+  
+  const advanceRevenue = cropAdvance + pestAdvance;
+  const fullPaymentRevenue = cropFull + pestFull;
+  const deliveryCashCollected = cropDeliveryCash + pestDeliveryCash;
+  const harvestCashCollected = cropHarvestCash + pestHarvestCash;
+
+  const totalCropRevenue = cropAdvance + cropFull + cropDeliveryCash + cropHarvestCash;
+  const totalPestRevenue = pestAdvance + pestFull + pestDeliveryCash + pestHarvestCash;
+  const totalRevenueEarned = totalCropRevenue + totalPestRevenue;
 
   const pageTitle =
     isOfficer
@@ -146,7 +180,16 @@ export default async function ReportsPage() {
           </CardHeader>
           <CardContent>
             <div className="text-2xl font-bold">{totalBookings}</div>
-            <p className="text-xs text-gray-500 mt-1">Total orders processed</p>
+            <div className="mt-2 text-xs text-gray-500 space-y-1">
+              <div className="flex justify-between">
+                <span>🌾 Crops:</span>
+                <span className="font-semibold text-gray-700">{cropBookingsCount}</span>
+              </div>
+              <div className="flex justify-between">
+                <span>🧪 Pesticides:</span>
+                <span className="font-semibold text-gray-700">{pestBookingsCount}</span>
+              </div>
+            </div>
           </CardContent>
         </Card>
 
@@ -190,7 +233,16 @@ export default async function ReportsPage() {
               </CardHeader>
               <CardContent>
                 <div className="text-2xl font-bold text-emerald-700">₹ {totalRevenueEarned.toLocaleString("en-IN")}</div>
-                <p className="text-xs text-emerald-600 mt-1">Cash gathered to date</p>
+                <div className="mt-2 text-xs text-emerald-700 space-y-1">
+                  <div className="flex justify-between">
+                    <span>🌾 Crops:</span>
+                    <span className="font-semibold">₹ {totalCropRevenue.toLocaleString("en-IN")}</span>
+                  </div>
+                  <div className="flex justify-between">
+                    <span>🧪 Pesticides:</span>
+                    <span className="font-semibold">₹ {totalPestRevenue.toLocaleString("en-IN")}</span>
+                  </div>
+                </div>
               </CardContent>
             </Card>
             
@@ -200,20 +252,15 @@ export default async function ReportsPage() {
                 <CardTitle className="text-sm font-medium text-blue-800">Expected Balances</CardTitle>
               </CardHeader>
               <CardContent>
-                <div className="flex justify-between items-end">
-                  <div>
-                    <div className="text-xl font-bold text-blue-700">₹ {(expectedBalance + expectedHarvestBalance).toLocaleString("en-IN")}</div>
-                    <p className="text-xs text-blue-600 mt-1">Total pending payouts</p>
-                  </div>
-                </div>
-                <div className="mt-3 text-xs text-blue-600 space-y-1">
+                <div className="text-xl font-bold text-blue-700">₹ {(expectedBalance + expectedHarvestBalance).toLocaleString("en-IN")}</div>
+                <div className="mt-2 text-xs text-blue-700 space-y-1">
                   <div className="flex justify-between">
-                    <span>Delivery Due:</span>
-                    <span className="font-semibold">₹ {expectedBalance.toLocaleString("en-IN")}</span>
+                    <span>🌾 Crops:</span>
+                    <span className="font-semibold">₹ {(cropExpectedBalance + cropExpectedHarvest).toLocaleString("en-IN")}</span>
                   </div>
                   <div className="flex justify-between">
-                    <span>Harvest Due:</span>
-                    <span className="font-semibold">₹ {expectedHarvestBalance.toLocaleString("en-IN")}</span>
+                    <span>🧪 Pesticides:</span>
+                    <span className="font-semibold">₹ {(pestExpectedBalance + pestExpectedHarvest).toLocaleString("en-IN")}</span>
                   </div>
                 </div>
               </CardContent>
@@ -226,7 +273,16 @@ export default async function ReportsPage() {
               </CardHeader>
               <CardContent>
                 <div className="text-2xl font-bold text-gray-800">₹ {pipelineValue.toLocaleString("en-IN")}</div>
-                <p className="text-xs text-gray-500 mt-1">GMV (excluding cancelled)</p>
+                <div className="mt-2 text-xs text-gray-500 space-y-1">
+                  <div className="flex justify-between">
+                    <span>🌾 Crops:</span>
+                    <span className="font-semibold text-gray-700">₹ {cropPipelineValue.toLocaleString("en-IN")}</span>
+                  </div>
+                  <div className="flex justify-between">
+                    <span>🧪 Pesticides:</span>
+                    <span className="font-semibold text-gray-700">₹ {pestPipelineValue.toLocaleString("en-IN")}</span>
+                  </div>
+                </div>
               </CardContent>
             </Card>
 
@@ -306,7 +362,7 @@ export default async function ReportsPage() {
                       <div className="text-xs text-gray-500">{b.farmers?.unique_id}</div>
                     </TableCell>
                     {/* @ts-ignore */}
-                    <TableCell>{b.items?.name}</TableCell>
+                    <TableCell>{b.items?.name || b.pesticide_inventory?.name || "Unknown"}</TableCell>
                     <TableCell>
                       <div className="flex flex-col gap-0.5">
                         <span className="font-medium">{b.qty} ordered</span>

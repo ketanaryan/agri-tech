@@ -76,16 +76,24 @@ export default async function FarmerProfilePage({
       balance_amount,
       status,
       created_at,
-      item:items ( name, rate_per_unit )
+      pesticide_id,
+      item:items ( name, rate_per_unit ),
+      pesticide_inventory ( name )
     `)
     .eq("farmer_id", id)
     .order("created_at", { ascending: false });
 
-  // Summary stats
   const totalBookings = bookings?.length ?? 0;
+  const cropBookingsCount = bookings?.filter((b) => !b.pesticide_id).length ?? 0;
+  const pestBookingsCount = bookings?.filter((b) => !!b.pesticide_id).length ?? 0;
+
   const pendingCount = bookings?.filter((b) => b.status === "Pending").length ?? 0;
   const deliveredCount = bookings?.filter((b) => b.status === "Delivered" || b.status === "Completed").length ?? 0;
+  
   const totalValue = bookings?.reduce((sum, b) => sum + (b.total_amount ?? 0), 0) ?? 0;
+  const cropValue = bookings?.filter((b) => !b.pesticide_id).reduce((sum, b) => sum + (b.total_amount ?? 0), 0) ?? 0;
+  const pestValue = bookings?.filter((b) => !!b.pesticide_id).reduce((sum, b) => sum + (b.total_amount ?? 0), 0) ?? 0;
+
   const totalPaid = bookings?.reduce((sum, b) => {
     if (b.status === "Delivered" || b.status === "Completed") return sum + (b.total_amount ?? 0);
     return sum + (b.booking_amount ?? 0);
@@ -221,6 +229,12 @@ export default async function FarmerProfilePage({
           <CardContent className="pt-4 pb-4 text-center">
             <div className="text-3xl font-bold text-gray-900">{totalBookings}</div>
             <div className="text-xs text-gray-500 mt-1">Total Bookings</div>
+            {(cropBookingsCount > 0 || pestBookingsCount > 0) && (
+              <div className="mt-2 text-[10px] text-gray-500 flex flex-col items-center">
+                {cropBookingsCount > 0 && <span>🌾 {cropBookingsCount}</span>}
+                {pestBookingsCount > 0 && <span>🧪 {pestBookingsCount}</span>}
+              </div>
+            )}
           </CardContent>
         </Card>
         <Card>
@@ -235,12 +249,18 @@ export default async function FarmerProfilePage({
             <div className="text-xs text-gray-500 mt-1">Delivered</div>
           </CardContent>
         </Card>
-        <Card>
+        <Card className="col-span-2 sm:col-span-1">
           <CardContent className="pt-4 pb-4 text-center">
             <div className="text-2xl font-bold text-gray-900">
               ₹{totalValue.toLocaleString("en-IN")}
             </div>
             <div className="text-xs text-gray-500 mt-1">Total Order Value</div>
+            {(cropValue > 0 || pestValue > 0) && (
+              <div className="mt-2 text-[10px] text-gray-500 flex flex-col items-center">
+                {cropValue > 0 && <span>🌾 ₹{cropValue.toLocaleString("en-IN")}</span>}
+                {pestValue > 0 && <span>🧪 ₹{pestValue.toLocaleString("en-IN")}</span>}
+              </div>
+            )}
           </CardContent>
         </Card>
       </div>
@@ -277,7 +297,10 @@ export default async function FarmerProfilePage({
                         <TableCell className="font-mono text-xs text-gray-500">
                           {b.id.slice(0, 8).toUpperCase()}
                         </TableCell>
-                        <TableCell className="font-medium">{item?.name ?? "—"}</TableCell>
+                        <TableCell className="font-medium">
+                          {/* @ts-ignore */}
+                          {item?.name || b.pesticide_inventory?.name || "—"}
+                        </TableCell>
                         <TableCell>{b.qty}</TableCell>
                         <TableCell className="font-mono">
                           {b.total_amount?.toLocaleString("en-IN")}
