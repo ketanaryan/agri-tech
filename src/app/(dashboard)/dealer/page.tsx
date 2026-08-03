@@ -19,6 +19,7 @@ import { redirect } from "next/navigation";
 import { Users, UserPlus, Tractor, FileText } from "lucide-react";
 import { CreateUserForm } from "@/components/shared/CreateUserForm";
 import { UploadQRCard } from "@/components/shared/UploadQRCard";
+import { InvoiceSettingsForm } from "@/components/shared/InvoiceSettingsForm";
 
 
 
@@ -150,6 +151,13 @@ export default async function DealerDashboard() {
             />
           </CardContent>
         </Card>
+
+        {/* Invoice Settings */}
+        <InvoiceSettingsForm 
+          initialCompanyName={profile?.invoice_company_name}
+          initialGst={profile?.invoice_gst}
+          initialAddress={profile?.invoice_address}
+        />
 
         {/* Upload QR Card */}
         <UploadQRCard initialQrUrl={profile?.qr_code_url || null} />

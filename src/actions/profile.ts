@@ -28,3 +28,30 @@ export async function updateProfileQrCode(qrUrl: string) {
   revalidatePath("/dealer");
   return { success: true };
 }
+
+export async function updateInvoiceSettings(companyName: string, gst: string, address: string) {
+  const supabase = await createClient();
+  const { data: { user }, error: authError } = await supabase.auth.getUser();
+  
+  if (authError || !user) {
+    return { error: "Unauthorized" };
+  }
+
+  const { error } = await supabase
+    .from("profiles")
+    .update({ 
+      invoice_company_name: companyName || null,
+      invoice_gst: gst || null,
+      invoice_address: address || null
+    })
+    .eq("id", user.id);
+
+  if (error) {
+    return { error: "Failed to update invoice settings" };
+  }
+
+  revalidatePath("/dealer");
+  revalidatePath("/bookings");
+  revalidatePath("/bookings/pesticide");
+  return { success: true };
+}

@@ -32,9 +32,19 @@ interface CreatePesticideBookingFormProps {
   farmers: Farmer[];
   pesticides: Pesticide[];
   dealerQrCodeUrl?: string | null;
+  dealerInvoiceSettings?: {
+    companyName: string;
+    gst: string;
+    address: string;
+  } | null;
 }
 
-export function CreatePesticideBookingForm({ farmers, pesticides, dealerQrCodeUrl }: CreatePesticideBookingFormProps) {
+export function CreatePesticideBookingForm({
+  farmers,
+  pesticides,
+  dealerQrCodeUrl,
+  dealerInvoiceSettings,
+}: CreatePesticideBookingFormProps) {
   const [farmerId, setFarmerId] = useState("");
   const [pesticideId, setPesticideId] = useState("");
   const [qtyStr, setQtyStr] = useState("1");
@@ -92,44 +102,75 @@ export function CreatePesticideBookingForm({ farmers, pesticides, dealerQrCodeUr
       // Generate PDF Receipt
       const { jsPDF } = await import("jspdf"); // Dynamic import for client side
       const doc = new jsPDF();
-      doc.setFontSize(22);
-      doc.setTextColor(22, 163, 74); // green-600
-      doc.text("Bio Eagle Petroleum Pvt Ltd - Official Receipt", 20, 20);
+      
+      let currentY = 20;
+
+      if (dealerInvoiceSettings?.companyName) {
+        doc.setFontSize(22);
+        doc.setTextColor(22, 163, 74); // green-600
+        doc.text(dealerInvoiceSettings.companyName, 20, currentY);
+        currentY += 8;
+        
+        doc.setFontSize(10);
+        doc.setTextColor(100, 100, 100);
+        if (dealerInvoiceSettings.address) {
+          doc.text(dealerInvoiceSettings.address, 20, currentY);
+          currentY += 6;
+        }
+        if (dealerInvoiceSettings.gst) {
+          doc.text(`GSTIN: ${dealerInvoiceSettings.gst}`, 20, currentY);
+          currentY += 6;
+        }
+        currentY += 4;
+      } else {
+        doc.setFontSize(22);
+        doc.setTextColor(22, 163, 74); // green-600
+        doc.text("Bio Eagle Petroleum Pvt Ltd - Official Receipt", 20, currentY);
+        currentY += 10;
+      }
 
       doc.setFontSize(12);
       doc.setTextColor(0, 0, 0);
-      doc.text(`Date: ${new Date().toLocaleDateString()}`, 20, 30);
-      doc.text(`Booking ID: ${bookData.bookingId?.slice(0, 8) || "N/A"}`, 20, 38);
+      doc.text(`Date: ${new Date().toLocaleDateString()}`, 20, currentY);
+      currentY += 8;
+      doc.text(`Booking ID: ${bookData.bookingId?.slice(0, 8) || "N/A"}`, 20, currentY);
+      currentY += 12;
       
       doc.setFontSize(14);
       doc.setTextColor(50, 50, 50);
-      doc.text("Farmer Details:", 20, 50);
+      doc.text("Farmer Details:", 20, currentY);
+      currentY += 8;
       doc.setFontSize(12);
-      doc.text(`Name: ${fName}`, 20, 58);
-      doc.text(`Farmer ID: ${fUid}`, 20, 66);
-      doc.text(`Phone: ${fPhone}`, 20, 74);
+      doc.text(`Name: ${fName}`, 20, currentY);
+      currentY += 8;
+      doc.text(`Farmer ID: ${fUid}`, 20, currentY);
+      currentY += 8;
+      doc.text(`Phone: ${fPhone}`, 20, currentY);
+      currentY += 16;
 
       doc.setFontSize(14);
-      doc.text("Order Summary:", 20, 90);
+      doc.text("Order Summary:", 20, currentY);
+      currentY += 8;
       doc.setFontSize(12);
-      doc.text(`Item: ${itemName} (${selectedPesticide?.unit || 'unit'})`, 20, 98);
-      doc.text(`Ordered Quantity: ${qty} ${selectedPesticide?.unit || 'unit'}`, 20, 106);
-      doc.text(`Total Amount: Rs. ${totalAmount.toFixed(2)}`, 20, 114);
-
-      doc.setFontSize(11);
-      doc.setTextColor(21, 128, 61); // green-700
-      doc.text(`Total to be Delivered: ${totalDelivered} ${selectedPesticide?.unit || 'unit'}`, 20, 130);
+      doc.text(`Item: ${itemName}`, 20, currentY);
+      currentY += 8;
+      doc.text(`Quantity: ${qty} ${selectedPesticide?.unit || "units"}`, 20, currentY);
+      currentY += 8;
+      doc.text(`Total Amount: Rs. ${totalAmount.toFixed(2)}`, 20, currentY);
+      currentY += 12;
 
       doc.setFontSize(12);
       doc.setTextColor(22, 163, 74);
-      doc.text(`${payType === "full" ? "Full Payment" : "Advance Paid (10%)"}: Rs. ${checkoutAmount.toFixed(2)}`, 20, 142);
+      doc.text(`${payType === "full" ? "Full Payment" : "Advance Paid (10%)"}: Rs. ${checkoutAmount.toFixed(2)}`, 20, currentY);
+      currentY += 8;
       
       doc.setTextColor(220, 38, 38);
-      doc.text(`Balance Due at Delivery: Rs. ${balanceAmount.toFixed(2)}`, 20, 150);
+      doc.text(`Balance Due at Delivery: Rs. ${balanceAmount.toFixed(2)}`, 20, currentY);
+      currentY += 12;
       
       doc.setTextColor(100, 100, 100);
       doc.setFontSize(10);
-      doc.text("This is an electronically generated receipt.", 20, 162);
+      doc.text("This is an electronically generated receipt.", 20, currentY);
 
       const pdfBlob = doc.output('blob');
       const localPdfUrl = URL.createObjectURL(pdfBlob);

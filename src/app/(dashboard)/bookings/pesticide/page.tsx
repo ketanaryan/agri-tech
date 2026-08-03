@@ -15,7 +15,7 @@ export default async function PesticideBookingsPage() {
 
   const { data: profile } = await supabase
     .from("profiles")
-    .select("role, district, qr_code_url")
+    .select("role, district, qr_code_url, invoice_company_name, invoice_gst, invoice_address")
     .eq("id", user.id)
     .single();
 
@@ -40,18 +40,35 @@ export default async function PesticideBookingsPage() {
     .select("id, name, rate_per_unit, unit")
     .order("name");
 
-  // Determine QR Code URL for payments
+  // Determine QR Code URL and Invoice Settings for payments/receipts
   let dealerQrCodeUrl = profile?.qr_code_url || null;
+  let dealerInvoiceSettings = null;
 
-  if (profile?.role === "FieldOfficer" && profile?.district) {
+  if (profile?.role === "Dealer") {
+    if (profile.invoice_company_name) {
+      dealerInvoiceSettings = {
+        companyName: profile.invoice_company_name,
+        gst: profile.invoice_gst,
+        address: profile.invoice_address,
+      };
+    }
+  } else if (profile?.role === "FieldOfficer" && profile?.district) {
     const { data: dealer } = await supabase
       .from("profiles")
-      .select("qr_code_url")
+      .select("qr_code_url, invoice_company_name, invoice_gst, invoice_address")
       .eq("role", "Dealer")
       .eq("district", profile.district)
       .limit(1)
       .single();
+      
     if (dealer?.qr_code_url) dealerQrCodeUrl = dealer.qr_code_url;
+    if (dealer?.invoice_company_name) {
+      dealerInvoiceSettings = {
+        companyName: dealer.invoice_company_name,
+        gst: dealer.invoice_gst,
+        address: dealer.invoice_address,
+      };
+    }
   }
 
   // Fallback to Admin QR Code
@@ -83,6 +100,7 @@ export default async function PesticideBookingsPage() {
               farmers={farmers ?? []}
               pesticides={pesticides ?? []}
               dealerQrCodeUrl={dealerQrCodeUrl}
+              dealerInvoiceSettings={dealerInvoiceSettings}
             />
           </CardContent>
         </Card>
