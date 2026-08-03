@@ -80,10 +80,13 @@ export default async function ReportsPage() {
   const cropBookingsCount = bookings?.filter((b) => !b.pesticide_id).length || 0;
   const pestBookingsCount = bookings?.filter((b) => !!b.pesticide_id).length || 0;
 
-  const pendingBookings =
-    bookings?.filter((b) => b.status === "Pending").length || 0;
-  const completedBookings =
-    bookings?.filter((b) => b.status === "Completed").length || 0;
+  const pendingBookings = bookings?.filter((b) => b.status === "Pending").length || 0;
+  const cropPendingCount = bookings?.filter((b) => b.status === "Pending" && !b.pesticide_id).length || 0;
+  const pestPendingCount = bookings?.filter((b) => b.status === "Pending" && !!b.pesticide_id).length || 0;
+
+  const completedBookings = bookings?.filter((b) => b.status === "Completed").length || 0;
+  const cropCompletedCount = bookings?.filter((b) => b.status === "Completed" && !b.pesticide_id).length || 0;
+  const pestCompletedCount = bookings?.filter((b) => b.status === "Completed" && !!b.pesticide_id).length || 0;
   const cancelledBookings =
     bookings?.filter((b) => b.status === "Cancelled").length || 0;
   // Active Bookings (excluding cancelled)
@@ -202,7 +205,16 @@ export default async function ReportsPage() {
           </CardHeader>
           <CardContent>
             <div className="text-2xl font-bold">{pendingBookings}</div>
-            <p className="text-xs text-gray-500 mt-1">Awaiting delivery</p>
+            <div className="mt-2 text-xs text-gray-500 space-y-1">
+              <div className="flex justify-between">
+                <span>🌾 Crops:</span>
+                <span className="font-semibold text-gray-700">{cropPendingCount}</span>
+              </div>
+              <div className="flex justify-between">
+                <span>🧪 Pesticides:</span>
+                <span className="font-semibold text-gray-700">{pestPendingCount}</span>
+              </div>
+            </div>
           </CardContent>
         </Card>
 
@@ -215,7 +227,16 @@ export default async function ReportsPage() {
           </CardHeader>
           <CardContent>
             <div className="text-2xl font-bold">{completedBookings}</div>
-            <p className="text-xs text-gray-500 mt-1">Successfully fulfilled</p>
+            <div className="mt-2 text-xs text-gray-500 space-y-1">
+              <div className="flex justify-between">
+                <span>🌾 Crops:</span>
+                <span className="font-semibold text-gray-700">{cropCompletedCount}</span>
+              </div>
+              <div className="flex justify-between">
+                <span>🧪 Pesticides:</span>
+                <span className="font-semibold text-gray-700">{pestCompletedCount}</span>
+              </div>
+            </div>
           </CardContent>
         </Card>
 

@@ -88,7 +88,12 @@ export default async function FarmerProfilePage({
   const pestBookingsCount = bookings?.filter((b) => !!b.pesticide_id).length ?? 0;
 
   const pendingCount = bookings?.filter((b) => b.status === "Pending").length ?? 0;
+  const cropPendingCount = bookings?.filter((b) => b.status === "Pending" && !b.pesticide_id).length ?? 0;
+  const pestPendingCount = bookings?.filter((b) => b.status === "Pending" && !!b.pesticide_id).length ?? 0;
+
   const deliveredCount = bookings?.filter((b) => b.status === "Delivered" || b.status === "Completed").length ?? 0;
+  const cropDeliveredCount = bookings?.filter((b) => (b.status === "Delivered" || b.status === "Completed") && !b.pesticide_id).length ?? 0;
+  const pestDeliveredCount = bookings?.filter((b) => (b.status === "Delivered" || b.status === "Completed") && !!b.pesticide_id).length ?? 0;
   
   const totalValue = bookings?.reduce((sum, b) => sum + (b.total_amount ?? 0), 0) ?? 0;
   const cropValue = bookings?.filter((b) => !b.pesticide_id).reduce((sum, b) => sum + (b.total_amount ?? 0), 0) ?? 0;
@@ -241,12 +246,24 @@ export default async function FarmerProfilePage({
           <CardContent className="pt-4 pb-4 text-center">
             <div className="text-3xl font-bold text-yellow-600">{pendingCount}</div>
             <div className="text-xs text-gray-500 mt-1">Pending</div>
+            {(cropPendingCount > 0 || pestPendingCount > 0) && (
+              <div className="mt-2 text-[10px] text-gray-500 flex flex-col items-center">
+                {cropPendingCount > 0 && <span>🌾 {cropPendingCount}</span>}
+                {pestPendingCount > 0 && <span>🧪 {pestPendingCount}</span>}
+              </div>
+            )}
           </CardContent>
         </Card>
         <Card>
           <CardContent className="pt-4 pb-4 text-center">
             <div className="text-3xl font-bold text-green-700">{deliveredCount}</div>
             <div className="text-xs text-gray-500 mt-1">Delivered</div>
+            {(cropDeliveredCount > 0 || pestDeliveredCount > 0) && (
+              <div className="mt-2 text-[10px] text-gray-500 flex flex-col items-center">
+                {cropDeliveredCount > 0 && <span>🌾 {cropDeliveredCount}</span>}
+                {pestDeliveredCount > 0 && <span>🧪 {pestDeliveredCount}</span>}
+              </div>
+            )}
           </CardContent>
         </Card>
         <Card className="col-span-2 sm:col-span-1">
