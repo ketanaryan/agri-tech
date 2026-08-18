@@ -103,7 +103,6 @@ export function Sidebar({ role }: SidebarProps) {
           { href: "/super-distributor", label: "My Network", icon: Users },
           { href: "/farmers", label: "Farmer Directory", icon: Users },
           { href: "/bookings", label: "New Booking", icon: FileText },
-          { href: "/bookings/pesticide", label: "Pesticide Booking", icon: Leaf },
           { href: "/b2b-orders", label: "B2B Orders", icon: Package },
           { href: "/reports", label: "Reports", icon: BarChart3 },
           { href: "/plant-reports", label: "Plant Reports", icon: Package },

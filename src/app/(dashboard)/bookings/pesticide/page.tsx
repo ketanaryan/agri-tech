@@ -19,10 +19,7 @@ export default async function PesticideBookingsPage() {
     .eq("id", user.id)
     .single();
 
-  if (
-    profile?.role !== "Admin" && 
-    profile?.role !== "SuperDistributor"
-  ) {
+  if (profile?.role !== "Admin") {
     redirect("/"); // redirect unauthorized users
   }
 
