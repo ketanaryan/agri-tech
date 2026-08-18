@@ -48,9 +48,10 @@ export default async function FarmerProfilePage({
   if (
     role !== "Admin" &&
     role !== "FieldOfficer" &&
-    role !== "Dealer" &&
+    role !== "Telecaller" &&
     role !== "Counselor" &&
-    role !== "Telecaller"
+    role !== "Dealer" &&
+    role !== "SuperDistributor"
   ) {
     redirect("/");
   }

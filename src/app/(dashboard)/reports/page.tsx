@@ -30,13 +30,13 @@ export default async function ReportsPage() {
   const role = profile?.role;
   const district = profile?.district;
 
-  const allowedRoles = ["Admin", "FieldOfficer", "Dealer"];
+  const allowedRoles = ["Admin", "FieldOfficer", "Dealer", "SuperDistributor"];
   if (!role || !allowedRoles.includes(role)) redirect("/");
 
   const isOfficer = role === "FieldOfficer";
   const isDealer = role === "Dealer";
-  // Only Admin and Dealer see revenue (Counselor and FieldOfficer do NOT)
-  const showRevenue = role === "Admin" || role === "Dealer";
+  // Only Admin, Dealer and SuperDistributor see revenue (Counselor and FieldOfficer do NOT)
+  const showRevenue = role === "Admin" || role === "Dealer" || role === "SuperDistributor";
 
   // Build base query
   let query = supabase

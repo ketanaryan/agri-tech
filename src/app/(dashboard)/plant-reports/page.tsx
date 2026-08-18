@@ -23,7 +23,7 @@ export default async function PlantReportsDashboard() {
     .eq("id", user.id)
     .single();
 
-  if (profile?.role !== "Counselor" && profile?.role !== "Admin") {
+  if (profile?.role !== "Counselor" && profile?.role !== "Admin" && profile?.role !== "SuperDistributor") {
     redirect("/"); 
   }
 

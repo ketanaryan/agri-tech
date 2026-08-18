@@ -44,7 +44,8 @@ export default async function FarmersDirectoryPage({
     role !== "FieldOfficer" &&
     role !== "Telecaller" &&
     role !== "Counselor" &&
-    role !== "Dealer"
+    role !== "Dealer" &&
+    role !== "SuperDistributor"
   ) {
     redirect("/");
   }
