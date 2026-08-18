@@ -24,7 +24,8 @@ export async function POST(req: NextRequest) {
     profile?.role !== "Admin" && 
     profile?.role !== "FieldOfficer" && 
     profile?.role !== "Dealer" &&
-    profile?.role !== "Counselor"
+    profile?.role !== "Counselor" &&
+    profile?.role !== "SuperDistributor"
   ) {
     return NextResponse.json({ error: "Forbidden" }, { status: 403 });
   }

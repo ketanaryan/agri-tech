@@ -23,7 +23,12 @@ export async function POST(req: NextRequest) {
       .eq("id", user.id)
       .single();
 
-    if (profile?.role !== "Admin" && profile?.role !== "Dealer" && profile?.role !== "FieldOfficer") {
+    if (
+      profile?.role !== "Admin" && 
+      profile?.role !== "Dealer" && 
+      profile?.role !== "FieldOfficer" &&
+      profile?.role !== "SuperDistributor"
+    ) {
       return NextResponse.json({ error: "Forbidden" }, { status: 403 });
     }
 
