@@ -81,7 +81,7 @@ export async function POST(req: NextRequest) {
     // Fetch item rate first to calculate expected payment amounts
     const { data: item, error: itemError } = await supabase
       .from("items")
-      .select("rate_per_unit, advance_percentage, harvest_rate")
+      .select("name, rate_per_unit, advance_percentage, harvest_rate")
       .eq("id", itemId)
       .single();
 
@@ -151,8 +151,9 @@ export async function POST(req: NextRequest) {
     }
 
 
-    // Replacement plants: 10% of ordered qty, free of charge
-    const replacement_qty = Math.floor(qty * 0.1);
+    // Replacement plants: 10% of ordered qty, free of charge (Except for Anar)
+    const isAnar = item.name?.toLowerCase().includes("anar");
+    const replacement_qty = isAnar ? 0 : Math.floor(qty * 0.1);
 
 
     // Insert booking — try with gateway columns first, fallback without
