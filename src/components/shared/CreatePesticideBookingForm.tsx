@@ -309,28 +309,7 @@ export function CreatePesticideBookingForm({
         />
       </div>
 
-      {/* Payment Type */}
-      <div className="space-y-2">
-        <Label>Payment Type</Label>
-        <div className="flex gap-2 mb-2">
-          <Button
-            type="button"
-            variant={payType === "advance" ? "default" : "outline"}
-            onClick={() => setPayType("advance")}
-            className={payType === "advance" ? "bg-green-700 hover:bg-green-800" : ""}
-          >
-            Advance Payment (10%)
-          </Button>
-          <Button
-            type="button"
-            variant={payType === "full" ? "default" : "outline"}
-            onClick={() => setPayType("full")}
-            className={payType === "full" ? "bg-green-700 hover:bg-green-800" : ""}
-          >
-            Full Payment (100%)
-          </Button>
-        </div>
-      </div>
+
 
       {/* Payment Method */}
       <div className="space-y-2">
