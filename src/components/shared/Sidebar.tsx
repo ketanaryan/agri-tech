@@ -85,7 +85,6 @@ export function Sidebar({ role }: SidebarProps) {
       case "FieldOfficer":
         return [
           { href: "/bookings", label: "New Booking", icon: FileText },
-          { href: "/bookings/pesticide", label: "Pesticide Booking", icon: Leaf },
           { href: "/farmers", label: "Farmers", icon: Users },
           { href: "/plant-report", label: "Plant Report", icon: Package },
           { href: "/reports", label: "Reports", icon: BarChart3 },
@@ -94,7 +93,6 @@ export function Sidebar({ role }: SidebarProps) {
         return [
           { href: "/dealer", label: "Manage Team", icon: UserPlus },
           { href: "/bookings", label: "New Booking", icon: FileText },
-          { href: "/bookings/pesticide", label: "Pesticide Booking", icon: Leaf },
           { href: "/purchasing", label: "Purchasing", icon: Search },
           { href: "/b2b-orders", label: "My B2B Orders", icon: Package },
           { href: "/farmers", label: "Farmer Directory", icon: Users },
