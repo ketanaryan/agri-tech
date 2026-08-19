@@ -153,7 +153,7 @@ export async function POST(req: NextRequest) {
 
 
     // Replacement plants: 10% of ordered qty, free of charge (Except for Anar)
-    const isAnar = item.name?.toLowerCase().includes("anar");
+    const isAnar = /anar|annar|pomegranate/i.test(item.name || "");
     const replacement_qty = isAnar ? 0 : Math.floor(qty * 0.1);
 
 

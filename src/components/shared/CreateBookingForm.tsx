@@ -92,7 +92,7 @@ export function CreateBookingForm({
   const balanceAmount = Math.round((totalAmount - checkoutAmount - harvestAmount) * 100) / 100;
 
   // Replacement plants: 10% free buffer — no charge (except Anar)
-  const isAnar = selectedItem?.name?.toLowerCase().includes("anar");
+  const isAnar = /anar|annar|pomegranate/i.test(selectedItem?.name || "");
   const replacementQty = (qty > 0 && !isAnar) ? Math.floor(qty * 0.1) : 0;
   const totalDelivered = qty + replacementQty;
 
@@ -236,7 +236,7 @@ export function CreateBookingForm({
       currentY += 8;
 
       // Replacement plants info
-      const isAnarItem = itemName?.toLowerCase().includes("anar");
+      const isAnarItem = /anar|annar|pomegranate/i.test(itemName || "");
       const localReplacementQty = isAnarItem ? 0 : Math.floor(qty * 0.1);
       const localTotalDelivered = qty + localReplacementQty;
       doc.setFontSize(11);
@@ -288,7 +288,7 @@ export function CreateBookingForm({
         console.error("Failed to upload receipt", e);
       }
 
-      const isAnarItemWa = itemName?.toLowerCase().includes("anar");
+      const isAnarItemWa = /anar|annar|pomegranate/i.test(itemName || "");
       const waReplacementQty = isAnarItemWa ? 0 : Math.floor(qty * 0.1);
       const waTotalDelivered = qty + waReplacementQty;
       
