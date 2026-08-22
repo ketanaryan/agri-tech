@@ -717,8 +717,8 @@ export function CreateBookingForm({
           {totalReplacementQty > 0 && (
             <div className="flex items-start justify-between bg-emerald-50 border border-emerald-200 rounded-md px-3 py-2 mt-1">
               <div>
-                <p className="text-emerald-700 font-semibold text-xs uppercase tracking-wide">🌱 Free Replacement Plants</p>
-                <p className="text-emerald-600 text-xs mt-0.5">10% buffer — no extra charge</p>
+                <p className="text-emerald-700 font-semibold text-xs uppercase tracking-wide">🌱 Free Replacement Plants (Moringa Only)</p>
+                <p className="text-emerald-600 text-xs mt-0.5">10% buffer — no extra charge (not applicable for Anar)</p>
               </div>
               <span className="text-emerald-700 font-bold text-base">+{totalReplacementQty}</span>
             </div>
