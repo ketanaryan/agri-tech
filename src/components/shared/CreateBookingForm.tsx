@@ -329,7 +329,8 @@ export function CreateBookingForm({
     currentY += 8;
     
     doc.setTextColor(220, 38, 38);
-    doc.text(`Balance Due at Delivery: Rs. ${(balanceAmount + harvestAmount).toFixed(2)}`, 20, currentY);
+    const balanceLabel = harvestAmount > 0 ? "Balance at Delivery and Balance at Harvesting" : "Balance at Delivery";
+    doc.text(`${balanceLabel}: Rs. ${(balanceAmount + harvestAmount).toFixed(2)}`, 20, currentY);
     currentY += 8;
     
     currentY += 4;
@@ -364,7 +365,8 @@ export function CreateBookingForm({
       return line;
     }).join("\n");
 
-    let waText = `Hello ${fName},\nYour Bio Eagle Petroleum Booking is Confirmed! 🌱\n\nFarmer ID: ${fUid}\n\n${itemsSummary}\n\n✅ Total Delivery: ${totalDelivered} plants\n\n💰 ${payType === "full" ? "Total Paid" : "Advance Paid"}: ₹${checkoutAmount.toLocaleString("en-IN", { minimumFractionDigits: 2 })}\n💵 Balance Due at Delivery: ₹${(balanceAmount + harvestAmount).toLocaleString("en-IN", { minimumFractionDigits: 2 })}\n`;
+    const waBalanceLabel = harvestAmount > 0 ? "Balance at Delivery and Balance at Harvesting" : "Balance at Delivery";
+    let waText = `Hello ${fName},\nYour Bio Eagle Petroleum Booking is Confirmed! 🌱\n\nFarmer ID: ${fUid}\n\n${itemsSummary}\n\n✅ Total Delivery: ${totalDelivered} plants\n\n💰 ${payType === "full" ? "Total Paid" : "Advance Paid"}: ₹${checkoutAmount.toLocaleString("en-IN", { minimumFractionDigits: 2 })}\n💵 ${waBalanceLabel}: ₹${(balanceAmount + harvestAmount).toLocaleString("en-IN", { minimumFractionDigits: 2 })}\n`;
     if (publicReceiptUrl) {
        waText += `\n📄 Download Receipt: ${publicReceiptUrl}\n`;
     }
@@ -734,7 +736,7 @@ export function CreateBookingForm({
             <span>₹{checkoutAmount.toLocaleString("en-IN", { minimumFractionDigits: 2 })}</span>
           </div>
           <div className="flex justify-between text-gray-500 font-medium text-xs mt-1">
-            <span>Balance at Delivery:</span>
+            <span>{harvestAmount > 0 ? "Balance at Delivery and Balance at Harvesting:" : "Balance at Delivery:"}</span>
             <span>₹{(balanceAmount + harvestAmount).toLocaleString("en-IN", { minimumFractionDigits: 2 })}</span>
           </div>
           <p className="text-xs text-gray-400">
