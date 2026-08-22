@@ -226,7 +226,7 @@ export async function POST(req: NextRequest) {
         }
       }
 
-      return NextResponse.json({ success: true, bookingId: fallback?.id, finalFarmerUniqueId });
+      return NextResponse.json({ success: true, bookingId: fallback?.id, finalFarmerUniqueId, farmerId: finalFarmerId });
     }
 
     // — Transaction Logging —
@@ -277,7 +277,7 @@ export async function POST(req: NextRequest) {
       }
     }
 
-    return NextResponse.json({ success: true, bookingId: newBooking?.id, finalFarmerUniqueId });
+    return NextResponse.json({ success: true, bookingId: newBooking?.id, finalFarmerUniqueId, farmerId: finalFarmerId });
   } catch (err: any) {
     console.error("[/api/bookings/create]", err);
     return NextResponse.json(

@@ -68,8 +68,9 @@ export function CreateBookingForm({
   const [uploadError, setUploadError] = useState<string | null>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
 
-  const [itemId, setItemId] = useState("");
-  const [qtyStr, setQtyStr] = useState("1");
+  // Multi-item order lines
+  interface OrderLine { itemId: string; qtyStr: string; }
+  const [orderLines, setOrderLines] = useState<OrderLine[]>([{ itemId: "", qtyStr: "1" }]);
   const payMethod = "online";
   const [payType, setPayType] = useState<"advance" | "full">("advance");
   const [msg, setMsg] = useState<{ text: string; type: "success" | "error"; waUrl?: string; localPdfUrl?: string; bookingId?: string } | null>(null);
@@ -77,24 +78,50 @@ export function CreateBookingForm({
   const [isPending, startTransition] = useTransition();
   const [showQrModal, setShowQrModal] = useState(false);
 
+  const updateOrderLine = (index: number, field: keyof OrderLine, value: string) => {
+    setOrderLines(prev => prev.map((line, i) => i === index ? { ...line, [field]: value } : line));
+  };
+  const addOrderLine = () => {
+    setOrderLines(prev => [...prev, { itemId: "", qtyStr: "1" }]);
+  };
+  const removeOrderLine = (index: number) => {
+    if (orderLines.length <= 1) return;
+    setOrderLines(prev => prev.filter((_, i) => i !== index));
+  };
 
-
-  const qty = parseInt(qtyStr, 10) || 0;
-  const selectedItem = items.find((i) => i.id === itemId);
   const selectedFarmer = farmers.find((f) => f.id === farmerId);
 
-  const totalAmount = selectedItem ? selectedItem.rate_per_unit * qty : 0;
-  
-  // Use custom advance percentage if specified, otherwise 10%
-  const advancePercent = selectedItem?.advance_percentage ?? 10;
-  const harvestAmount = selectedItem ? (selectedItem.harvest_rate || 0) * qty : 0;
-  const checkoutAmount = payType === "full" ? (totalAmount - harvestAmount) : Math.round(totalAmount * (advancePercent / 100) * 100) / 100;
-  const balanceAmount = Math.round((totalAmount - checkoutAmount - harvestAmount) * 100) / 100;
+  // Compute per-line and combined totals
+  const lineSummaries = orderLines.map((line) => {
+    const item = items.find((i) => i.id === line.itemId);
+    const qty = parseInt(line.qtyStr, 10) || 0;
+    if (!item || qty <= 0) return null;
+    const lineTotal = item.rate_per_unit * qty;
+    const advPct = item.advance_percentage ?? 10;
+    const harvestAmt = (item.harvest_rate || 0) * qty;
+    const checkout = payType === "full" ? (lineTotal - harvestAmt) : Math.round(lineTotal * (advPct / 100) * 100) / 100;
+    const balance = Math.round((lineTotal - checkout - harvestAmt) * 100) / 100;
+    const isAnarLine = /anar|annar|pomegranate/i.test(item.name || "");
+    const replQty = (qty > 0 && !isAnarLine) ? Math.floor(qty * 0.1) : 0;
+    return { item, qty, lineTotal, advPct, harvestAmt, checkout, balance, isAnarLine, replQty, totalDelivered: qty + replQty };
+  });
+  const validLines = lineSummaries.filter(Boolean) as NonNullable<(typeof lineSummaries)[number]>[];
 
-  // Replacement plants: 10% free buffer — no charge (except Anar)
-  const isAnar = /anar|annar|pomegranate/i.test(selectedItem?.name || "");
-  const replacementQty = (qty > 0 && !isAnar) ? Math.floor(qty * 0.1) : 0;
-  const totalDelivered = qty + replacementQty;
+  const totalAmount = validLines.reduce((s, l) => s + l.lineTotal, 0);
+  const checkoutAmount = validLines.reduce((s, l) => s + l.checkout, 0);
+  const balanceAmount = validLines.reduce((s, l) => s + l.balance, 0);
+  const harvestAmount = validLines.reduce((s, l) => s + l.harvestAmt, 0);
+  const totalQty = validLines.reduce((s, l) => s + l.qty, 0);
+  const totalReplacementQty = validLines.reduce((s, l) => s + l.replQty, 0);
+  const totalDelivered = totalQty + totalReplacementQty;
+
+  // For backward compat in single-line cases
+  const firstLine = orderLines[0];
+  const itemId = firstLine?.itemId || "";
+  const selectedItem = items.find((i) => i.id === itemId);
+  const qty = parseInt(firstLine?.qtyStr || "0", 10) || 0;
+  const advancePercent = selectedItem?.advance_percentage ?? 10;
+  const hasValidItems = validLines.length > 0;
 
   const handleFileChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
@@ -143,191 +170,226 @@ export function CreateBookingForm({
     utr_number?: string;
   }) => {
     const methodToUse = paymentData?.method || payMethod;
-    const bookRes = await fetch("/api/bookings/create", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({
-        farmerMode,
-        farmerId: farmerMode === "existing" ? farmerId : undefined,
-        newFarmerData: farmerMode === "new" ? {
-          name: newFarmerName,
-          phone: newFarmerPhone,
-          address: newFarmerAddress,
-          photo_url: photoUrl,
-          alternate_phone: newFarmerAltPhone,
-          land_size: newFarmerLandSize ? parseFloat(newFarmerLandSize) : null,
-          land_unit: newFarmerLandUnit || "acres",
-          land_type: newFarmerLandType || null,
-        } : undefined,
-        itemId,
-        qty,
-        paymentMethod: methodToUse,
-        paymentType: payType,
-        ...paymentData,
-      }),
-    });
-    const bookData = await bookRes.json();
-    if (!bookRes.ok || bookData.error) {
-      setMsg({ text: `Booking failed: ${bookData.error}`, type: "error" });
-    } else {
-      const fName = farmerMode === "existing" ? selectedFarmer?.name : newFarmerName;
-      const fPhone = farmerMode === "existing" ? selectedFarmer?.phone : newFarmerPhone;
-      const itemName = selectedItem?.name;
-      const fUid = bookData.finalFarmerUniqueId || (farmerMode === "existing" ? selectedFarmer?.unique_id : "Processing");
+    
+    // Create one booking per order line
+    const bookingResults: { bookingId: string; itemName: string; qty: number; lineTotal: number; checkout: number; balance: number; harvestAmt: number; replQty: number; totalDelivered: number; advPct: number }[] = [];
+    let resolvedFarmerId = farmerMode === "existing" ? farmerId : undefined;
+    let resolvedFarmerUniqueId = farmerMode === "existing" ? selectedFarmer?.unique_id : undefined;
+    let currentFarmerMode: "existing" | "new" = farmerMode;
 
-      // Generate PDF Receipt
-      const { jsPDF } = await import("jspdf"); // Dynamic import for client side
-      const doc = new jsPDF();
-      
-      let currentY = 20;
-      
-      if (dealerInvoiceSettings?.companyName) {
-        doc.setFontSize(22);
-        doc.setTextColor(22, 163, 74); // green-600
-        doc.text(dealerInvoiceSettings.companyName, 20, currentY);
-        currentY += 8;
-        
-        doc.setFontSize(10);
-        doc.setTextColor(100, 100, 100);
-        if (dealerInvoiceSettings.address) {
-          doc.text(dealerInvoiceSettings.address, 20, currentY);
-          currentY += 6;
-        }
-        if (dealerInvoiceSettings.gst) {
-          doc.text(`GSTIN: ${dealerInvoiceSettings.gst}`, 20, currentY);
-          currentY += 6;
-        }
-        currentY += 4;
-      } else {
-        doc.setFontSize(22);
-        doc.setTextColor(22, 163, 74); // green-600
-        doc.text("Bio Eagle Petroleum Pvt Ltd - Official Receipt", 20, currentY);
-        currentY += 10;
-      }
-
-      doc.setFontSize(12);
-      doc.setTextColor(0, 0, 0);
-      doc.text(`Date: ${new Date().toLocaleDateString()}`, 20, currentY);
-      currentY += 8;
-      doc.text(`Booking ID: ${bookData.bookingId?.slice(0, 8) || "N/A"}`, 20, currentY);
-      currentY += 12;
-      
-      doc.setFontSize(14);
-      doc.setTextColor(50, 50, 50);
-      doc.text("Farmer Details:", 20, currentY);
-      currentY += 8;
-      doc.setFontSize(12);
-      doc.text(`Name: ${fName}`, 20, currentY);
-      currentY += 8;
-      doc.text(`Farmer ID: ${fUid}`, 20, currentY);
-      currentY += 8;
-      doc.text(`Phone: ${fPhone}`, 20, currentY);
-      currentY += 16;
-
-      doc.setFontSize(14);
-      doc.text("Order Summary:", 20, currentY);
-      currentY += 8;
-      doc.setFontSize(12);
-      doc.text(`Item: ${itemName}`, 20, currentY);
-      currentY += 8;
-      doc.text(`Ordered Quantity: ${qty} plants`, 20, currentY);
-      currentY += 8;
-      doc.text(`Total Amount: Rs. ${totalAmount.toFixed(2)}`, 20, currentY);
-      currentY += 8;
-
-      // Replacement plants info
-      const isAnarItem = /anar|annar|pomegranate/i.test(itemName || "");
-      const localReplacementQty = isAnarItem ? 0 : Math.floor(qty * 0.1);
-      const localTotalDelivered = qty + localReplacementQty;
-      doc.setFontSize(11);
-      doc.setTextColor(21, 128, 61); // green-700
-      if (localReplacementQty > 0) {
-        doc.text(`Free Replacement Plants (10%): ${localReplacementQty} plants (No charge)`, 20, currentY);
-        currentY += 8;
-      }
-      doc.text(`Total Plants to be Delivered: ${localTotalDelivered} plants`, 20, currentY);
-      currentY += 12;
-
-      doc.setFontSize(12);
-      doc.setTextColor(22, 163, 74);
-      doc.text(`${payType === "full" ? "Full Payment" : `Advance Paid (${advancePercent}%)`}: Rs. ${checkoutAmount.toFixed(2)}`, 20, currentY);
-      currentY += 8;
-      
-      doc.setTextColor(220, 38, 38);
-      doc.text(`Balance Due at Delivery: Rs. ${balanceAmount.toFixed(2)}`, 20, currentY);
-      currentY += 8;
-      
-      if (harvestAmount > 0) {
-         doc.setTextColor(234, 88, 12); // orange-600
-         doc.text(`Harvest Payment Due: Rs. ${harvestAmount.toFixed(2)}`, 20, currentY);
-         currentY += 8;
-      }
-      
-      currentY += 4;
-      doc.setTextColor(100, 100, 100);
-      doc.setFontSize(10);
-      doc.text("This is an electronically generated receipt.", 20, currentY);
-
-      const pdfBlob = doc.output('blob');
-      const localPdfUrl = URL.createObjectURL(pdfBlob);
-
-      // Upload PDF
-      let publicReceiptUrl = "";
-      try {
-        const fd = new FormData();
-        fd.append("receipt", pdfBlob, `receipt_${bookData.bookingId}.pdf`);
-        const upRes = await fetch("/api/upload-receipt", {
-          method: "POST",
-          body: fd,
-        });
-        const upData = await upRes.json();
-        if (upRes.ok && upData.url) {
-          publicReceiptUrl = upData.url;
-        }
-      } catch (e) {
-        console.error("Failed to upload receipt", e);
-      }
-
-      const isAnarItemWa = /anar|annar|pomegranate/i.test(itemName || "");
-      const waReplacementQty = isAnarItemWa ? 0 : Math.floor(qty * 0.1);
-      const waTotalDelivered = qty + waReplacementQty;
-      
-      let waText = `Hello ${fName},\nYour Bio Eagle Petroleum Booking is Confirmed! 🌱\n\nFarmer ID: ${fUid}\nItem: ${itemName}\n\n📦 Ordered: ${qty} plants\n`;
-      if (waReplacementQty > 0) {
-        waText += `🎁 Free Replacement (10%): ${waReplacementQty} plants\n`;
-      }
-      waText += `✅ Total Delivery: ${waTotalDelivered} plants\n\n💰 ${payType === "full" ? "Total Paid" : "Advance Paid"}: ₹${checkoutAmount.toLocaleString("en-IN", { minimumFractionDigits: 2 })}\n💵 Balance Due at Delivery: ₹${balanceAmount.toLocaleString("en-IN", { minimumFractionDigits: 2 })}`;
-      if (harvestAmount > 0) {
-         waText += `\n🌾 Due at Harvest: ₹${harvestAmount.toLocaleString("en-IN", { minimumFractionDigits: 2 })}`;
-      }
-      waText += `\n`;
-      if (publicReceiptUrl) {
-         waText += `\n📄 Download Receipt: ${publicReceiptUrl}\n`;
-      }
-      waText += `\nThank you for choosing us! 🙏`;
-
-      const waUrl = `https://wa.me/91${fPhone}?text=${encodeURIComponent(waText)}`;
-
-      setMsg({
-        text: `✅ Booking created! ${payType === "full" ? "Full payment" : "Advance"} of ₹${checkoutAmount.toFixed(2)} paid (Online). ID: ${bookData.bookingId?.slice(0, 8)}`,
-        type: "success",
-        waUrl,
-        localPdfUrl,
-        bookingId: bookData.bookingId
+    for (let i = 0; i < validLines.length; i++) {
+      const line = validLines[i];
+      const bookRes = await fetch("/api/bookings/create", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          farmerMode: currentFarmerMode,
+          farmerId: currentFarmerMode === "existing" ? resolvedFarmerId : undefined,
+          newFarmerData: currentFarmerMode === "new" ? {
+            name: newFarmerName,
+            phone: newFarmerPhone,
+            address: newFarmerAddress,
+            photo_url: photoUrl,
+            alternate_phone: newFarmerAltPhone,
+            land_size: newFarmerLandSize ? parseFloat(newFarmerLandSize) : null,
+            land_unit: newFarmerLandUnit || "acres",
+            land_type: newFarmerLandType || null,
+          } : undefined,
+          itemId: line.item.id,
+          qty: line.qty,
+          paymentMethod: methodToUse,
+          paymentType: payType,
+          ...paymentData,
+        }),
       });
-      // Reset form
-      setFarmerId("");
-      setNewFarmerName("");
-      setNewFarmerPhone("");
-      setNewFarmerAddress("");
-      setPhotoPreview(null);
-      setPhotoUrl("");
-      setItemId("");
-      setQtyStr("1");
-      setNewFarmerLandSize("");
-      setNewFarmerLandUnit("acres");
-      setNewFarmerLandType("");
+      const bookData = await bookRes.json();
+      if (!bookRes.ok || bookData.error) {
+        setMsg({ text: `Booking failed for ${line.item.name}: ${bookData.error}`, type: "error" });
+        setPaying(false);
+        return;
+      }
+      bookingResults.push({
+        bookingId: bookData.bookingId,
+        itemName: line.item.name,
+        qty: line.qty,
+        lineTotal: line.lineTotal,
+        checkout: line.checkout,
+        balance: line.balance,
+        harvestAmt: line.harvestAmt,
+        replQty: line.replQty,
+        totalDelivered: line.totalDelivered,
+        advPct: line.advPct,
+      });
+      // After first booking with new farmer, switch to existing mode
+      if (currentFarmerMode === "new" && bookData.farmerId) {
+        resolvedFarmerId = bookData.farmerId;
+        resolvedFarmerUniqueId = bookData.finalFarmerUniqueId;
+        currentFarmerMode = "existing";
+      }
+      if (!resolvedFarmerUniqueId && bookData.finalFarmerUniqueId) {
+        resolvedFarmerUniqueId = bookData.finalFarmerUniqueId;
+      }
     }
+
+    // All bookings created successfully
+    const fName = farmerMode === "existing" ? selectedFarmer?.name : newFarmerName;
+    const fPhone = farmerMode === "existing" ? selectedFarmer?.phone : newFarmerPhone;
+    const fUid = resolvedFarmerUniqueId || "Processing";
+    const firstBookingId = bookingResults[0]?.bookingId;
+
+    // Generate PDF Receipt
+    const { jsPDF } = await import("jspdf");
+    const doc = new jsPDF();
+    
+    let currentY = 20;
+    
+    if (dealerInvoiceSettings?.companyName) {
+      doc.setFontSize(22);
+      doc.setTextColor(22, 163, 74);
+      doc.text(dealerInvoiceSettings.companyName, 20, currentY);
+      currentY += 8;
+      
+      doc.setFontSize(10);
+      doc.setTextColor(100, 100, 100);
+      if (dealerInvoiceSettings.address) {
+        doc.text(dealerInvoiceSettings.address, 20, currentY);
+        currentY += 6;
+      }
+      if (dealerInvoiceSettings.gst) {
+        doc.text(`GSTIN: ${dealerInvoiceSettings.gst}`, 20, currentY);
+        currentY += 6;
+      }
+      currentY += 4;
+    } else {
+      doc.setFontSize(22);
+      doc.setTextColor(22, 163, 74);
+      doc.text("Bio Eagle Petroleum Pvt Ltd - Official Receipt", 20, currentY);
+      currentY += 10;
+    }
+
+    doc.setFontSize(12);
+    doc.setTextColor(0, 0, 0);
+    doc.text(`Date: ${new Date().toLocaleDateString()}`, 20, currentY);
+    currentY += 8;
+    const bookingIdsStr = bookingResults.map(b => b.bookingId?.slice(0, 8)).join(", ");
+    doc.text(`Booking ID(s): ${bookingIdsStr || "N/A"}`, 20, currentY);
+    currentY += 12;
+    
+    doc.setFontSize(14);
+    doc.setTextColor(50, 50, 50);
+    doc.text("Farmer Details:", 20, currentY);
+    currentY += 8;
+    doc.setFontSize(12);
+    doc.text(`Name: ${fName}`, 20, currentY);
+    currentY += 8;
+    doc.text(`Farmer ID: ${fUid}`, 20, currentY);
+    currentY += 8;
+    doc.text(`Phone: ${fPhone}`, 20, currentY);
+    currentY += 16;
+
+    doc.setFontSize(14);
+    doc.text("Order Summary:", 20, currentY);
+    currentY += 8;
+    doc.setFontSize(12);
+
+    for (const br of bookingResults) {
+      doc.setTextColor(0, 0, 0);
+      doc.text(`• ${br.itemName}: ${br.qty} plants — Rs. ${br.lineTotal.toFixed(2)}`, 20, currentY);
+      currentY += 7;
+      if (br.replQty > 0) {
+        doc.setFontSize(10);
+        doc.setTextColor(21, 128, 61);
+        doc.text(`  + ${br.replQty} free replacement plants`, 24, currentY);
+        currentY += 6;
+        doc.setFontSize(12);
+      }
+    }
+    currentY += 4;
+
+    doc.setTextColor(0, 0, 0);
+    doc.text(`Total Ordered: ${totalQty} plants`, 20, currentY);
+    currentY += 8;
+    doc.text(`Total Amount: Rs. ${totalAmount.toFixed(2)}`, 20, currentY);
+    currentY += 8;
+
+    if (totalReplacementQty > 0) {
+      doc.setFontSize(11);
+      doc.setTextColor(21, 128, 61);
+      doc.text(`Total Replacement Plants: ${totalReplacementQty} (Free)`, 20, currentY);
+      currentY += 7;
+    }
+    doc.setTextColor(21, 128, 61);
+    doc.setFontSize(11);
+    doc.text(`Total Plants to be Delivered: ${totalDelivered} plants`, 20, currentY);
+    currentY += 12;
+
+    doc.setFontSize(12);
+    doc.setTextColor(22, 163, 74);
+    doc.text(`${payType === "full" ? "Full Payment" : "Advance Paid"}: Rs. ${checkoutAmount.toFixed(2)}`, 20, currentY);
+    currentY += 8;
+    
+    doc.setTextColor(220, 38, 38);
+    doc.text(`Balance Due at Delivery: Rs. ${(balanceAmount + harvestAmount).toFixed(2)}`, 20, currentY);
+    currentY += 8;
+    
+    currentY += 4;
+    doc.setTextColor(100, 100, 100);
+    doc.setFontSize(10);
+    doc.text("This is an electronically generated receipt.", 20, currentY);
+
+    const pdfBlob = doc.output('blob');
+    const localPdfUrl = URL.createObjectURL(pdfBlob);
+
+    // Upload PDF
+    let publicReceiptUrl = "";
+    try {
+      const fd = new FormData();
+      fd.append("receipt", pdfBlob, `receipt_${firstBookingId}.pdf`);
+      const upRes = await fetch("/api/upload-receipt", {
+        method: "POST",
+        body: fd,
+      });
+      const upData = await upRes.json();
+      if (upRes.ok && upData.url) {
+        publicReceiptUrl = upData.url;
+      }
+    } catch (e) {
+      console.error("Failed to upload receipt", e);
+    }
+
+    // WhatsApp message
+    const itemsSummary = bookingResults.map(br => {
+      let line = `📦 ${br.itemName}: ${br.qty} plants`;
+      if (br.replQty > 0) line += ` (+${br.replQty} free)`;
+      return line;
+    }).join("\n");
+
+    let waText = `Hello ${fName},\nYour Bio Eagle Petroleum Booking is Confirmed! 🌱\n\nFarmer ID: ${fUid}\n\n${itemsSummary}\n\n✅ Total Delivery: ${totalDelivered} plants\n\n💰 ${payType === "full" ? "Total Paid" : "Advance Paid"}: ₹${checkoutAmount.toLocaleString("en-IN", { minimumFractionDigits: 2 })}\n💵 Balance Due at Delivery: ₹${(balanceAmount + harvestAmount).toLocaleString("en-IN", { minimumFractionDigits: 2 })}\n`;
+    if (publicReceiptUrl) {
+       waText += `\n📄 Download Receipt: ${publicReceiptUrl}\n`;
+    }
+    waText += `\nThank you for choosing us! 🙏`;
+
+    const waUrl = `https://wa.me/91${fPhone}?text=${encodeURIComponent(waText)}`;
+
+    setMsg({
+      text: `✅ ${bookingResults.length > 1 ? `${bookingResults.length} bookings` : "Booking"} created! ${payType === "full" ? "Full payment" : "Advance"} of ₹${checkoutAmount.toFixed(2)} paid (Online). ID(s): ${bookingIdsStr}`,
+      type: "success",
+      waUrl,
+      localPdfUrl,
+      bookingId: firstBookingId
+    });
+    // Reset form
+    setFarmerId("");
+    setNewFarmerName("");
+    setNewFarmerPhone("");
+    setNewFarmerAddress("");
+    setPhotoPreview(null);
+    setPhotoUrl("");
+    setOrderLines([{ itemId: "", qtyStr: "1" }]);
+    setNewFarmerLandSize("");
+    setNewFarmerLandUnit("acres");
+    setNewFarmerLandType("");
     setPaying(false);
   };
 
@@ -346,9 +408,17 @@ export function CreateBookingForm({
         return;
       }
     }
-    if (!itemId || qty <= 0) {
-      setMsg({ text: "Please fill item details correctly.", type: "error" });
+    if (!hasValidItems) {
+      setMsg({ text: "Please select at least one item with a valid quantity.", type: "error" });
       return;
+    }
+    // Validate all lines have items selected
+    for (const line of orderLines) {
+      if (line.itemId && (parseInt(line.qtyStr, 10) || 0) <= 0) {
+        const item = items.find(i => i.id === line.itemId);
+        setMsg({ text: `Please enter a valid quantity for ${item?.name || "selected item"}.`, type: "error" });
+        return;
+      }
     }
 
     setPaying(true);
@@ -566,41 +636,55 @@ export function CreateBookingForm({
         </div>
       )}
 
-      {/* Item Select */}
-      <div className="space-y-2">
-        <Label htmlFor="itemId">Select Item</Label>
-        <Select value={itemId} onValueChange={(v) => setItemId(v ?? "")}>
-          <SelectTrigger id="itemId">
-            <SelectValue placeholder="Select an item">
-              {itemId && selectedItem ? `${selectedItem.name} — ₹${selectedItem.rate_per_unit}` : null}
-            </SelectValue>
-          </SelectTrigger>
-          <SelectContent>
-            {items.map((i) => (
-              <SelectItem key={i.id} value={i.id}>
-                {i.name} — ₹{i.rate_per_unit}
-              </SelectItem>
-            ))}
-          </SelectContent>
-        </Select>
-      </div>
-
-      {/* Quantity */}
-      <div className="space-y-2">
-        <Label htmlFor="qty">Quantity</Label>
-        <Input
-          id="qty"
-          name="qty"
-          type="text"
-          inputMode="numeric"
-          pattern="[0-9]*"
-          placeholder="Enter quantity (e.g. 47)"
-          value={qtyStr}
-          onChange={(e) => {
-            const val = e.target.value.replace(/[^0-9]/g, "");
-            setQtyStr(val);
-          }}
-        />
+      {/* Item(s) Selection */}
+      <div className="space-y-3">
+        <Label>Select Item(s)</Label>
+        {orderLines.map((line, idx) => {
+          const lineItem = items.find(i => i.id === line.itemId);
+          return (
+            <div key={idx} className="flex gap-2 items-end">
+              <div className="flex-1 space-y-1">
+                {idx === 0 && <span className="text-xs text-gray-500">Item</span>}
+                <Select value={line.itemId} onValueChange={(v) => updateOrderLine(idx, "itemId", v ?? "")}>
+                  <SelectTrigger>
+                    <SelectValue placeholder="Select an item">
+                      {line.itemId && lineItem ? `${lineItem.name} — ₹${lineItem.rate_per_unit}` : null}
+                    </SelectValue>
+                  </SelectTrigger>
+                  <SelectContent>
+                    {items.map((i) => (
+                      <SelectItem key={i.id} value={i.id}>
+                        {i.name} — ₹{i.rate_per_unit}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+              <div className="w-24 space-y-1">
+                {idx === 0 && <span className="text-xs text-gray-500">Qty</span>}
+                <Input
+                  type="text"
+                  inputMode="numeric"
+                  pattern="[0-9]*"
+                  placeholder="Qty"
+                  value={line.qtyStr}
+                  onChange={(e) => {
+                    const val = e.target.value.replace(/[^0-9]/g, "");
+                    updateOrderLine(idx, "qtyStr", val);
+                  }}
+                />
+              </div>
+              {orderLines.length > 1 && (
+                <Button type="button" variant="ghost" size="icon" className="text-red-500 hover:text-red-700 hover:bg-red-50 shrink-0" onClick={() => removeOrderLine(idx)}>
+                  <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" fill="none" viewBox="0 0 24 24" strokeWidth={2} stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" d="M6 18L18 6M6 6l12 12" /></svg>
+                </Button>
+              )}
+            </div>
+          );
+        })}
+        <Button type="button" variant="outline" size="sm" className="w-full border-dashed text-green-700 hover:bg-green-50" onClick={addOrderLine}>
+          + Add Another Item
+        </Button>
       </div>
 
       {/* Payment Method */}
@@ -612,26 +696,31 @@ export function CreateBookingForm({
       </div>
 
       {/* Price Preview */}
-      {selectedItem && qty > 0 && (
+      {hasValidItems && (
         <div className="p-4 bg-green-50 border border-green-200 rounded-lg space-y-2 text-sm">
-          {/* Billing breakdown */}
-          <div className="flex justify-between">
-            <span className="text-gray-600">Ordered Quantity:</span>
-            <span className="font-semibold">{qty} plants</span>
-          </div>
-          <div className="flex justify-between">
-            <span className="text-gray-600">Total Amount:</span>
-            <span className="font-semibold">₹{totalAmount.toLocaleString("en-IN")}</span>
-          </div>
+          {/* Per-item breakdown */}
+          {validLines.map((line, idx) => (
+            <div key={idx} className="flex justify-between">
+              <span className="text-gray-600">{line.item.name} × {line.qty}:</span>
+              <span className="font-semibold">₹{line.lineTotal.toLocaleString("en-IN")}</span>
+            </div>
+          ))}
+
+          {validLines.length > 1 && (
+            <div className="flex justify-between border-t pt-1">
+              <span className="text-gray-600">Total Amount:</span>
+              <span className="font-semibold">₹{totalAmount.toLocaleString("en-IN")}</span>
+            </div>
+          )}
 
           {/* Replacement plants highlight */}
-          {replacementQty > 0 && (
+          {totalReplacementQty > 0 && (
             <div className="flex items-start justify-between bg-emerald-50 border border-emerald-200 rounded-md px-3 py-2 mt-1">
               <div>
                 <p className="text-emerald-700 font-semibold text-xs uppercase tracking-wide">🌱 Free Replacement Plants</p>
                 <p className="text-emerald-600 text-xs mt-0.5">10% buffer — no extra charge</p>
               </div>
-              <span className="text-emerald-700 font-bold text-base">+{replacementQty}</span>
+              <span className="text-emerald-700 font-bold text-base">+{totalReplacementQty}</span>
             </div>
           )}
 
@@ -641,19 +730,13 @@ export function CreateBookingForm({
           </div>
 
           <div className="flex justify-between text-green-700 font-medium border-t pt-2">
-            <span>{payType === "full" ? "Pay Now (Full):" : `Advance Now (${advancePercent}%):`}</span>
+            <span>{payType === "full" ? "Pay Now (Full):" : "Advance Now:"}</span>
             <span>₹{checkoutAmount.toLocaleString("en-IN", { minimumFractionDigits: 2 })}</span>
           </div>
-          <div className="flex justify-between text-gray-400 text-xs">
+          <div className="flex justify-between text-gray-500 font-medium text-xs mt-1">
             <span>Balance at Delivery:</span>
-            <span>₹{balanceAmount.toLocaleString("en-IN", { minimumFractionDigits: 2 })}</span>
+            <span>₹{(balanceAmount + harvestAmount).toLocaleString("en-IN", { minimumFractionDigits: 2 })}</span>
           </div>
-          {harvestAmount > 0 && (
-            <div className="flex justify-between text-amber-600 font-medium text-xs mt-1">
-              <span>🌾 Post-Harvest Payment:</span>
-              <span>₹{harvestAmount.toLocaleString("en-IN", { minimumFractionDigits: 2 })}</span>
-            </div>
-          )}
           <p className="text-xs text-gray-400">
             📷 A QR code will be displayed for manual payment verification.
           </p>
@@ -706,8 +789,7 @@ export function CreateBookingForm({
         disabled={
           paying ||
           isPending ||
-          !itemId ||
-          qty <= 0 ||
+          !hasValidItems ||
           (uploading) ||
           (farmerMode === "existing" && !farmerId) ||
           (farmerMode === "new" && (!newFarmerName || !newFarmerPhone))
@@ -716,8 +798,8 @@ export function CreateBookingForm({
       >
         {paying || isPending || uploading
           ? "Processing..."
-          : selectedItem && qty > 0
-          ? `Pay ₹${checkoutAmount.toFixed(2)} & Generate Booking`
+          : hasValidItems
+          ? `Pay ₹${checkoutAmount.toFixed(2)} & Generate ${validLines.length > 1 ? `${validLines.length} Bookings` : "Booking"}`
           : "Generate Booking"}
       </Button>
 
